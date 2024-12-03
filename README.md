@@ -29,6 +29,7 @@ To make the normalization process easier, there are the following normalizers in
 - `StringNormalizableNormalizer`
 - `IntNormalizableNormalizer`
 - `FloatNormalizableNormalizer`
+- `BoolNormalizableNormalizer`
 - `ArrayNormalizableNormalizer`
 
 Additionally, there is an interface for each of the normalizers. Every class that implements one of the interfaces, will be automatically normalized to the respected type. This means putting the logic of how serialization of a class works within the class. That's not really seen as a good practice. In my experience, the data structure and the normalization need to be changed together. So, I like it better to have both in one place. I've used this approach in multiple large scale projects for years and haven't had a single issue with it yet. But your mileage may vary.
@@ -41,6 +42,7 @@ When using the normalizers, you can also use the same logic for doctrine types. 
 - `StringEnumType`
 - `IntNormalizableType`
 - `FloatNormalizableType`
+- `BoolNormalizableType`
 - `ArrayNormalizableType`
 
 As an added bonus, this makes sure, that the structure is always the same no matter if you're using Doctrine to read from the data or a normalizer.
