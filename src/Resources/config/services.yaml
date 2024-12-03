@@ -1,0 +1,16 @@
+services:
+
+  DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizableNormalizer:
+    tags: [ { name: 'serializer.normalizer' } ]
+
+  DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizableNormalizer:
+    tags: [ { name: 'serializer.normalizer' } ]
+
+  DigitalCraftsman\SelfAwareNormalizers\Serializer\FloatNormalizableNormalizer:
+    tags: [ { name: 'serializer.normalizer' } ]
+
+  DigitalCraftsman\SelfAwareNormalizers\Serializer\BoolNormalizableNormalizer:
+    tags: [ { name: 'serializer.normalizer' } ]
+
+  DigitalCraftsman\SelfAwareNormalizers\Serializer\ArrayNormalizableNormalizer:
+    tags: [ { name: 'serializer.normalizer' } ]
