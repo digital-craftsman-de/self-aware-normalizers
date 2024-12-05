@@ -45,13 +45,17 @@ abstract class FloatNormalizableType extends Type
     }
 
     /**
-     * @param ?FloatNormalizable $value
+     * @param FloatNormalizable|float|null $value
      */
     #[\Override]
     public function convertToDatabaseValue($value, AbstractPlatform $platform): ?float
     {
         if ($value === null) {
             return null;
+        }
+
+        if (is_float($value)) {
+            return $value;
         }
 
         return $value->normalize();

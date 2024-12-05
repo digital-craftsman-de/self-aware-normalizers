@@ -2,9 +2,11 @@
 
 A Symfony bundle to enable value objects and DTOs to normalize and denormalize themselves through implementing simple interfaces that normalize to scalar values and denormalize themselves from scalar values (`string`, `int`, `float`, `bool` and `array`). Adding this kind of logic to the classes themselves might be considered a bad practice, but depending on the use case it will actually be better due to the fact that the data structure and the normalization need to be changed together.
 
+The name implies that the value objects and DTOs are self-aware in the sense that they know how to normalize and denormalize themselves and that they are self-aware enough to do so 🙂 
+
 As it's a central part of an application, it's tested thoroughly (including mutation testing).
 
-[![Latest Stable Version](https://img.shields.io/badge/stable-0.1.0-blue)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
+[![Latest Stable Version](https://img.shields.io/badge/stable-0.2.0-blue)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
 [![PHP Version Require](https://img.shields.io/badge/php-8.3|8.4-5b5d95)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
 [![codecov](https://codecov.io/gh/digital-craftsman-de/self-aware-normalizers/branch/main/graph/badge.svg?token=BL0JKZYLBG)](https://codecov.io/gh/digital-craftsman-de/self-aware-normalizers)
 ![Packagist Downloads](https://img.shields.io/packagist/dt/digital-craftsman/self-aware-normalizers)
@@ -18,7 +20,7 @@ Install package through composer:
 composer require digital-craftsman/self-aware-normalizers
 ```
 
-> ⚠️ This bundle can be used (and is being used) in production, but hasn't reached version 1.0 yet. Therefore, there will be breaking changes between minor versions. I'd recommend that you require the bundle only with the current minor version like `composer require digital-craftsman/self-aware-normalizers:0.1.*`. Breaking changes are described in the releases and [the changelog](./CHANGELOG.md). Updates are described in the [upgrade guide](./UPGRADE.md).
+> ⚠️ This bundle can be used (and is being used) in production, but hasn't reached version 1.0 yet. Therefore, there will be breaking changes between minor versions. I'd recommend that you require the bundle only with the current minor version like `composer require digital-craftsman/self-aware-normalizers:0.2.*`. Breaking changes are described in the releases and [the changelog](./CHANGELOG.md). Updates are described in the [upgrade guide](./UPGRADE.md).
 
 ## Usage
 

@@ -49,4 +49,20 @@ final class FloatNormalizableTypeTest extends TestCase
         // -- Assert
         self::assertEquals($value, $convertedValue);
     }
+
+    #[Test]
+    public function convert_to_database_value_works_with_float(): void
+    {
+        // -- Arrange
+        $doctrineType = new RangeType();
+        $platform = new PostgreSQLPlatform();
+
+        $value = 0.5;
+
+        // -- Act
+        $databaseValue = $doctrineType->convertToDatabaseValue($value, $platform);
+
+        // -- Assert
+        self::assertEquals($value, $databaseValue);
+    }
 }

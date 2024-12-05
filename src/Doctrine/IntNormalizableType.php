@@ -43,13 +43,17 @@ abstract class IntNormalizableType extends Type
     }
 
     /**
-     * @param ?IntNormalizable $value
+     * @param IntNormalizable|int|null $value
      */
     #[\Override]
     public function convertToDatabaseValue($value, AbstractPlatform $platform): ?int
     {
         if ($value === null) {
             return null;
+        }
+
+        if (is_int($value)) {
+            return $value;
         }
 
         return $value->normalize();

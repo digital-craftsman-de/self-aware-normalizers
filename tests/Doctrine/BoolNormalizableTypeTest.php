@@ -47,4 +47,20 @@ final class BoolNormalizableTypeTest extends TestCase
         // -- Assert
         self::assertEquals($value, $convertedValue);
     }
+
+    #[Test]
+    public function convert_to_database_value_works_with_bool(): void
+    {
+        // -- Arrange
+        $doctrineType = new AcceptedTermsOfServiceType();
+        $platform = new PostgreSQLPlatform();
+
+        $value = true;
+
+        // -- Act
+        $databaseValue = $doctrineType->convertToDatabaseValue($value, $platform);
+
+        // -- Assert
+        self::assertEquals($value, $databaseValue);
+    }
 }
