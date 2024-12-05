@@ -32,6 +32,22 @@ final class StringNormalizableTypeTest extends TestCase
     }
 
     #[Test]
+    public function convert_to_database_value_works_with_string(): void
+    {
+        // -- Arrange
+        $doctrineType = new SearchTermType();
+        $platform = new PostgreSQLPlatform();
+
+        $value = 'peter';
+
+        // -- Act
+        $databaseValue = $doctrineType->convertToDatabaseValue($value, $platform);
+
+        // -- Assert
+        self::assertEquals($value, $databaseValue);
+    }
+
+    #[Test]
     public function convert_works_with_null(): void
     {
         // -- Arrange

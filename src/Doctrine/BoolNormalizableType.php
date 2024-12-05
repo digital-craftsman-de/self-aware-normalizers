@@ -43,13 +43,17 @@ abstract class BoolNormalizableType extends Type
     }
 
     /**
-     * @param ?BoolNormalizable $value
+     * @param BoolNormalizable|bool|null $value
      */
     #[\Override]
     public function convertToDatabaseValue($value, AbstractPlatform $platform): ?bool
     {
         if ($value === null) {
             return null;
+        }
+
+        if (is_bool($value)) {
+            return $value;
         }
 
         return $value->normalize();

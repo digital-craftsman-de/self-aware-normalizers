@@ -47,4 +47,20 @@ final class IntNormalizableTypeTest extends TestCase
         // -- Assert
         self::assertEquals($value, $convertedValue);
     }
+
+    #[Test]
+    public function convert_to_database_value_works_with_int(): void
+    {
+        // -- Arrange
+        $doctrineType = new LimitType();
+        $platform = new PostgreSQLPlatform();
+
+        $value = 60;
+
+        // -- Act
+        $databaseValue = $doctrineType->convertToDatabaseValue($value, $platform);
+
+        // -- Assert
+        self::assertEquals($value, $databaseValue);
+    }
 }

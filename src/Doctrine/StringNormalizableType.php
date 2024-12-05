@@ -51,13 +51,17 @@ abstract class StringNormalizableType extends Type
     }
 
     /**
-     * @param ?StringNormalizable $value
+     * @param StringNormalizable|string|null $value
      */
     #[\Override]
     public function convertToDatabaseValue($value, AbstractPlatform $platform): ?string
     {
         if ($value === null) {
             return null;
+        }
+
+        if (is_string($value)) {
+            return $value;
         }
 
         return $value->normalize();
