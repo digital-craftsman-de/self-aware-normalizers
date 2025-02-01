@@ -1,7 +1,7 @@
 # Build with
-# docker buildx build --platform linux/arm64,linux/amd64 -t ghcr.io/digital-craftsman-de/self-aware-normalizers-php-8.3:latest ./.docker/php-8.3 --push
+# docker buildx build --platform linux/arm64,linux/amd64 -t ghcr.io/digital-craftsman-de/self-aware-normalizers-php-8.4:latest ./.docker/php-8.4 --push
 
-FROM php:8.3-fpm-alpine
+FROM php:8.4-fpm-alpine
 
 RUN apk add --update \
     autoconf \

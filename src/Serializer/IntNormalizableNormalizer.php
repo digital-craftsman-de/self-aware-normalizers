@@ -10,7 +10,7 @@ use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 final class IntNormalizableNormalizer implements NormalizerInterface, DenormalizerInterface
 {
     #[\Override]
-    public function supportsNormalization(mixed $data, string $format = null, array $context = []): bool
+    public function supportsNormalization(mixed $data, ?string $format = null, array $context = []): bool
     {
         return $data instanceof IntNormalizable;
     }
@@ -29,7 +29,7 @@ final class IntNormalizableNormalizer implements NormalizerInterface, Denormaliz
      * @param IntNormalizable|null $data
      */
     #[\Override]
-    public function normalize(mixed $data, string $format = null, array $context = []): ?int
+    public function normalize(mixed $data, ?string $format = null, array $context = []): ?int
     {
         if ($data === null) {
             return null;
@@ -43,7 +43,7 @@ final class IntNormalizableNormalizer implements NormalizerInterface, Denormaliz
      * @param class-string<IntNormalizable> $type
      */
     #[\Override]
-    public function denormalize(mixed $data, string $type, string $format = null, array $context = []): ?IntNormalizable
+    public function denormalize(mixed $data, string $type, ?string $format = null, array $context = []): ?IntNormalizable
     {
         if ($data === null) {
             return null;
