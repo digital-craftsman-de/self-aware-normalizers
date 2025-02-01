@@ -9,14 +9,14 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-#  php-8.4:
-#    image: ghcr.io/digital-craftsman-de/self-aware-normalizers-php-8.4
-#    env_file:
-#      - .env
-#    volumes:
-#      - .:/var/www/html
-#    extra_hosts:
-#      - "host.docker.internal:host-gateway"
+  php-8.4:
+    image: ghcr.io/digital-craftsman-de/self-aware-normalizers-php-8.4
+    env_file:
+      - .env
+    volumes:
+      - .:/var/www/html
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   database-16-3: ~

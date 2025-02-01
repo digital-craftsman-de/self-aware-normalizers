@@ -10,7 +10,7 @@ use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 final readonly class ArrayNormalizableNormalizer implements NormalizerInterface, DenormalizerInterface
 {
     #[\Override]
-    public function supportsNormalization(mixed $data, string $format = null, array $context = []): bool
+    public function supportsNormalization(mixed $data, ?string $format = null, array $context = []): bool
     {
         return $data instanceof ArrayNormalizable;
     }
@@ -19,7 +19,7 @@ final readonly class ArrayNormalizableNormalizer implements NormalizerInterface,
      * @param class-string $type
      */
     #[\Override]
-    public function supportsDenormalization(mixed $data, string $type, string $format = null, array $context = []): bool
+    public function supportsDenormalization(mixed $data, string $type, ?string $format = null, array $context = []): bool
     {
         return class_exists($type)
             && is_subclass_of($type, ArrayNormalizable::class);
@@ -29,7 +29,7 @@ final readonly class ArrayNormalizableNormalizer implements NormalizerInterface,
      * @param ArrayNormalizable|null $data
      */
     #[\Override]
-    public function normalize(mixed $data, string $format = null, array $context = []): ?array
+    public function normalize(mixed $data, ?string $format = null, array $context = []): ?array
     {
         if ($data === null) {
             return null;
@@ -43,7 +43,7 @@ final readonly class ArrayNormalizableNormalizer implements NormalizerInterface,
      * @param class-string<ArrayNormalizable> $type
      */
     #[\Override]
-    public function denormalize(mixed $data, string $type, string $format = null, array $context = []): ?ArrayNormalizable
+    public function denormalize(mixed $data, string $type, ?string $format = null, array $context = []): ?ArrayNormalizable
     {
         if ($data === null) {
             return null;

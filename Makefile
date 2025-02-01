@@ -68,7 +68,7 @@ install-8.4:
 
 ## php-cli			Enter a shell for the default PHP version (8.4).
 .PHONY: php-cli
-php-cli: php-8.3-cli
+php-cli: php-8.4-cli
 
 ## php-8.3-cli			Enter a shell for PHP 8.3.
 .PHONY: php-8.3-cli
@@ -91,7 +91,7 @@ verify: php-code-validation php-tests php-mutation-testing
 
 ## php-tests			Run the tests for all relevant PHP versions.
 .PHONY: php-tests
-php-tests: php-8.3-tests
+php-tests: php-8.3-tests php-8.4-tests
 
 ## php-tests-coverage			Run the tests for all relevant PHP versions including coverage report as HTML.
 .PHONY: php-tests-coverage

@@ -10,7 +10,7 @@ use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 final class FloatNormalizableNormalizer implements NormalizerInterface, DenormalizerInterface
 {
     #[\Override]
-    public function supportsNormalization(mixed $data, string $format = null, array $context = []): bool
+    public function supportsNormalization(mixed $data, ?string $format = null, array $context = []): bool
     {
         return $data instanceof FloatNormalizable;
     }
@@ -29,7 +29,7 @@ final class FloatNormalizableNormalizer implements NormalizerInterface, Denormal
      * @param FloatNormalizable|null $data
      */
     #[\Override]
-    public function normalize(mixed $data, string $format = null, array $context = []): ?float
+    public function normalize(mixed $data, ?string $format = null, array $context = []): ?float
     {
         if ($data === null) {
             return null;
@@ -44,7 +44,7 @@ final class FloatNormalizableNormalizer implements NormalizerInterface, Denormal
      * @param class-string<FloatNormalizable> $type
      */
     #[\Override]
-    public function denormalize(mixed $data, string $type, string $format = null, array $context = []): ?FloatNormalizable
+    public function denormalize(mixed $data, string $type, ?string $format = null, array $context = []): ?FloatNormalizable
     {
         if ($data === null) {
             return null;

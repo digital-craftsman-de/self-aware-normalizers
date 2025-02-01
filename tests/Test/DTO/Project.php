@@ -26,7 +26,7 @@ final readonly class Project implements ArrayNormalizable
     public static function denormalize(array $data): self
     {
         return new self(
-            projectId: ProjectId::fromString($data['projectId']),
+            projectId: ProjectId::denormalize($data['projectId']),
             name: $data['name'],
         );
     }
@@ -40,7 +40,7 @@ final readonly class Project implements ArrayNormalizable
     public function normalize(): array
     {
         return [
-            'projectId' => (string) $this->projectId,
+            'projectId' => $this->projectId->normalize(),
             'name' => $this->name,
         ];
     }
