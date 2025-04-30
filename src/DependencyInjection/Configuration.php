@@ -7,6 +7,9 @@ namespace DigitalCraftsman\SelfAwareNormalizers\DependencyInjection;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
+/**
+ * @codeCoverageIgnore
+ */
 final class Configuration implements ConfigurationInterface
 {
     public const string DOCTRINE_TYPE_DIRECTORIES_CONFIGURATION_PARAMETER = 'self_aware_normalizers.doctrine_type_directories';
