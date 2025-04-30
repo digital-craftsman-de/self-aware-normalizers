@@ -6,7 +6,9 @@
     "php": "8.3.*|8.4.*",
     "symfony/framework-bundle": "^7.1",
     "symfony/serializer": "^7.1",
-    "doctrine/dbal": "^3.3.6"
+    "doctrine/dbal": "^3.3.6",
+    "league/construct-finder": "^1.5",
+    "symfony/yaml": "^7.1"
   },
   "require-dev": {
     "vimeo/psalm": "^6.0.0",
