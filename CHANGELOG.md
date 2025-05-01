@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0
+
+- Added configuration to automatically register all custom doctrine types in one or multiple directories.
+
 ## 0.3.0
 
 - Fully support PHP 8.4.

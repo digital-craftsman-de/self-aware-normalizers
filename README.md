@@ -6,7 +6,7 @@ The name implies that the value objects and DTOs are self-aware in the sense tha
 
 As it's a central part of an application, it's tested thoroughly (including mutation testing).
 
-[![Latest Stable Version](https://img.shields.io/badge/stable-0.3.0-blue)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
+[![Latest Stable Version](https://img.shields.io/badge/stable-1.0.0-blue)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
 [![PHP Version Require](https://img.shields.io/badge/php-8.3|8.4-5b5d95)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
 [![codecov](https://codecov.io/gh/digital-craftsman-de/self-aware-normalizers/branch/main/graph/badge.svg?token=BL0JKZYLBG)](https://codecov.io/gh/digital-craftsman-de/self-aware-normalizers)
 ![Packagist Downloads](https://img.shields.io/packagist/dt/digital-craftsman/self-aware-normalizers)
@@ -19,8 +19,6 @@ Install package through composer:
 ```shell
 composer require digital-craftsman/self-aware-normalizers
 ```
-
-> ⚠️ This bundle can be used (and is being used) in production, but hasn't reached version 1.0 yet. Therefore, there will be breaking changes between minor versions. I'd recommend that you require the bundle only with the current minor version like `composer require digital-craftsman/self-aware-normalizers:0.3.*`. Breaking changes are described in the releases and [the changelog](./CHANGELOG.md). Updates are described in the [upgrade guide](./UPGRADE.md).
 
 Optionally, you can add a `self-aware-normalizers.php` file to your `config/packages` directory to configure the bundle to automatically register all custom doctrine types in one or multiple directories:
 
