@@ -20,11 +20,15 @@ final readonly class ProjectId implements StringNormalizable
         return new self(uuid_create());
     }
 
+    // -- String normalizable
+
+    #[\Override]
     public static function denormalize(string $data): self
     {
         return new self($data);
     }
 
+    #[\Override]
     public function normalize(): string
     {
         return $this->id;

@@ -23,6 +23,7 @@ final readonly class Project implements ArrayNormalizable
      *      name: string,
      * } $data
      */
+    #[\Override]
     public static function denormalize(array $data): self
     {
         return new self(
@@ -37,6 +38,7 @@ final readonly class Project implements ArrayNormalizable
      *      name: string,
      * }
      */
+    #[\Override]
     public function normalize(): array
     {
         return [
