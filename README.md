@@ -6,7 +6,7 @@ The name implies that the value objects and DTOs are self-aware in the sense tha
 
 As it's a central part of an application, it's tested thoroughly (including mutation testing).
 
-[![Latest Stable Version](https://img.shields.io/badge/stable-1.0.0-blue)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
+[![Latest Stable Version](https://img.shields.io/badge/stable-1.1.0-blue)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
 [![PHP Version Require](https://img.shields.io/badge/php-8.3|8.4-5b5d95)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
 [![codecov](https://codecov.io/gh/digital-craftsman-de/self-aware-normalizers/branch/main/graph/badge.svg?token=BL0JKZYLBG)](https://codecov.io/gh/digital-craftsman-de/self-aware-normalizers)
 ![Packagist Downloads](https://img.shields.io/packagist/dt/digital-craftsman/self-aware-normalizers)

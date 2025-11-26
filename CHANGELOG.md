@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0
+
+- Added `denormalizeWhenNotNull` through interfaces and traits.
+
 ## 1.0.0
 
 - Added configuration to automatically register all custom doctrine types in one or multiple directories.
