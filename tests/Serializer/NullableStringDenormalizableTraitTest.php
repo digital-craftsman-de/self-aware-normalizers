@@ -7,9 +7,14 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Serializer;
 use DigitalCraftsman\SelfAwareNormalizers\Test\DTO\Search;
 use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\Limit;
 use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\SearchTerm;
+use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * @psalm-suppress InvalidArgument For some reason Psalm doesn't identify the trait as a trait-string.
+ */
+#[CoversTrait(NullableStringDenormalizableTrait::class)]
 final class NullableStringDenormalizableTraitTest extends TestCase
 {
     #[Test]
