@@ -11,7 +11,7 @@ use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\SearchTerm;
 /**
  * @psalm-type NormalizedSearchWithOptionalLimit = array{
  *     searchTerm: string,
- *     limit: int| null,
+ *     limit: int | null,
  * }
  */
 final readonly class SearchWithOptionalLimit implements ArrayNormalizable

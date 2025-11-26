@@ -53,26 +53,41 @@ Additionally, there is an interface for each of the normalizers. Every class tha
 With this you can have nested denormalization that looks like this:
 
 ```php
-public function __construct(
-    public SearchTerm $searchTerm,
-    public Limit $limit,
-) {
-}
-
-public static function denormalize(array $data): self
+/**
+ * @psalm-type NormalizedSearch = array{
+ *     searchTerm: string,
+ *     limit: int,
+ * }
+ */
+final readonly class Search implements ArrayNormalizable
 {
-    return new self(
-        searchTerm: SearchTerm::denormalize($data['searchTerm']),
-        limit: Limit::denormalize($data['limit']),
-    );
-}
-
-public function normalize(): array
-{
-    return [
-        'searchTerm' => $this->searchTerm->normalize(),
-        'limit' => $this->limit->normalize(),
-    ];
+    public function __construct(
+        public SearchTerm $searchTerm,
+        public Limit $limit,
+    ) {
+    }
+    
+    /**
+    * @param NormalizedSearch $data
+    */
+    public static function denormalize(array $data): self
+    {
+        return new self(
+            searchTerm: SearchTerm::denormalize($data['searchTerm']),
+            limit: Limit::denormalize($data['limit']),
+        );
+    }
+    
+    /**
+    * @return NormalizedSearch
+    */
+    public function normalize(): array
+    {
+        return [
+            'searchTerm' => $this->searchTerm->normalize(),
+            'limit' => $this->limit->normalize(),
+        ];
+    }
 }
 ```
 
@@ -81,26 +96,41 @@ public function normalize(): array
 When handling `null` you can use the `Nullable*Denormalizable` interfaces with the related `Nullable*DenormalizableTrait` to handle switches between `null` and the class like the following:
 
 ```php
-public function __construct(
-    public SearchTerm $searchTerm,
-    public ?Limit $limit,
-) {
-}
-
-public static function denormalize(array $data): self
+/**
+ * @psalm-type NormalizedSearchWithOptionalLimit = array{
+ *     searchTerm: string,
+ *     limit: int | null,
+ * }
+ */
+final readonly class SearchWithOptionalLimit implements ArrayNormalizable
 {
-    return new self(
-        searchTerm: SearchTerm::denormalize($data['searchTerm']),
-        limit: Limit::denormalizeWhenNotNull($data['limit']),
-    );
-}
-
-public function normalize(): array
-{
-    return [
-        'searchTerm' => $this->searchTerm->normalize(),
-        'limit' => $this->limit?->normalize(),
-    ];
+    public function __construct(
+        public SearchTerm $searchTerm,
+        public ?Limit $limit,
+    ) {
+    }
+    
+    /**
+    * @param NormalizedSearchWithOptionalLimit $data
+    */
+    public static function denormalize(array $data): self
+    {
+        return new self(
+            searchTerm: SearchTerm::denormalize($data['searchTerm']),
+            limit: Limit::denormalizeWhenNotNull($data['limit']),
+        );
+    }
+    
+    /**
+    * @return NormalizedSearchWithOptionalLimit
+    */
+    public function normalize(): array
+    {
+        return [
+            'searchTerm' => $this->searchTerm->normalize(),
+            'limit' => $this->limit?->normalize(),
+        ];
+    }
 }
 ```
 
