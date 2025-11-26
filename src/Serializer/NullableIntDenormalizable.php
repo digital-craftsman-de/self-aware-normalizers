@@ -6,5 +6,5 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Serializer;
 
 interface NullableIntDenormalizable
 {
-    public static function denormalizeWhenNotNull(?int $data): ?self;
+    public static function denormalizeWhenNotNull(?int $data): ?static;
 }
