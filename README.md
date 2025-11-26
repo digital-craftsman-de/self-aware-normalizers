@@ -94,6 +94,14 @@ public static function denormalize(array $data): self
         limit: Limit::denormalizeWhenNotNull($data['limit']),
     );
 }
+
+public function normalize(): array
+{
+    return [
+        'searchTerm' => $this->searchTerm->normalize(),
+        'limit' => $this->limit?->normalize(),
+    ];
+}
 ```
 
 ### Doctrine types
