@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject;
 
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableStringDenormalizable;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableStringDenormalizableTrait;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizable;
 
-final readonly class SearchTerm implements StringNormalizable
+final readonly class SearchTerm implements StringNormalizable, NullableStringDenormalizable
 {
+    use NullableStringDenormalizableTrait;
+
     public function __construct(
         public string $search,
     ) {
