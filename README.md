@@ -134,6 +134,18 @@ final readonly class SearchWithOptionalLimit implements ArrayNormalizable
 }
 ```
 
+Internally the value object simply has to implement the relevant interface and use the related trait like the following:
+
+```php
+final readonly class Limit implements IntNormalizable, NullableIntDenormalizable
+{
+    use NullableIntDenormalizableTrait;
+
+    public function __construct(
+        public int $limit,
+        ...
+```
+
 ### Doctrine types
 
 When using the normalizers, you can also use the same logic for doctrine types. Simply create a new doctrine type extending of one of the following types and register them:
