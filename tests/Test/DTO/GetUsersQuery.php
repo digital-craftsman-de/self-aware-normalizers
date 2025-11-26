@@ -7,48 +7,48 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Test\DTO;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\ArrayNormalizable;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableArrayDenormalizable;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableArrayDenormalizableTrait;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\Limit;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\SearchTerm;
 
 /**
- * @psalm-type NormalizedSearch = array{
- *     searchTerm: string | null,
- *     limit: int,
+ * @psalm-import-type NormalizedSearch from Search
+ *
+ * @psalm-type NormalizedGetUsersQuery = array{
+ *     userId: int,
+ *     search: NormalizedSearch | null,
  * }
  */
-final readonly class Search implements ArrayNormalizable, NullableArrayDenormalizable
+final readonly class GetUsersQuery implements ArrayNormalizable, NullableArrayDenormalizable
 {
     use NullableArrayDenormalizableTrait;
 
     public function __construct(
-        public ?SearchTerm $searchTerm,
-        public Limit $limit,
+        public int $userId,
+        public ?Search $search,
     ) {
     }
 
     // -- Array normalizable
 
     /**
-     * @param NormalizedSearch $data
+     * @param NormalizedGetUsersQuery $data
      */
     #[\Override]
     public static function denormalize(array $data): self
     {
         return new self(
-            searchTerm: SearchTerm::denormalizeWhenNotNull($data['searchTerm']),
-            limit: Limit::denormalize($data['limit']),
+            userId: $data['userId'],
+            search: Search::denormalizeWhenNotNull($data['search']),
         );
     }
 
     /**
-     * @return NormalizedSearch
+     * @return NormalizedGetUsersQuery
      */
     #[\Override]
     public function normalize(): array
     {
         return [
-            'searchTerm' => $this->searchTerm?->normalize(),
-            'limit' => $this->limit->normalize(),
+            'userId' => $this->userId,
+            'search' => $this->search?->normalize(),
         ];
     }
 }
