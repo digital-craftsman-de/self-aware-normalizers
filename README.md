@@ -50,6 +50,20 @@ To make the normalization process easier, there are the following normalizers in
 
 Additionally, there is an interface for each of the normalizers. Every class that implements one of the interfaces, will be automatically normalized to the respected type. This means putting the logic of how serialization of a class works within the class. That's not really seen as a good practice. In my experience, the data structure and the normalization need to be changed together. So, I like it better to have both in one place. I've used this approach in multiple large scale projects for years and haven't had a single issue with it yet. But your mileage may vary.
 
+#### Denormalized for null handling
+
+When handling `null` you can use the `Nullable*Denormalizable` interfaces with the related `Nullable*DenormalizableTrait` to handle switches between `null` and the property like the following:
+
+```php
+public static function denormalize(array $data): self
+{
+    return new self(
+        searchTerm: SearchTerm::denormalize($data['searchTerm']),
+        limit: Limit::denormalizeWhenNotNull($data['limit']),
+    );
+}
+```
+
 ### Doctrine types
 
 When using the normalizers, you can also use the same logic for doctrine types. Simply create a new doctrine type extending of one of the following types and register them:
