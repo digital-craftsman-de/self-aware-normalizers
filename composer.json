@@ -14,7 +14,7 @@
     "vimeo/psalm": "^6.0.0",
     "friendsofphp/php-cs-fixer": "^v3.68.5",
     "phpunit/phpunit": "^12.4",
-    "infection/infection": "^0.29.10",
+    "infection/infection": "^0.31.8",
     "symfony/property-access": "^7.1",
     "symfony/property-info": "^7.1"
   },
