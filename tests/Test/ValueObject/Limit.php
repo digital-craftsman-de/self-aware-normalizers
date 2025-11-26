@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject;
 
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizable;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableIntDenormalizable;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableIntDenormalizableTrait;
 
-final readonly class Limit implements IntNormalizable
+final readonly class Limit implements IntNormalizable, NullableIntDenormalizable
 {
+    use NullableIntDenormalizableTrait;
+
     public function __construct(
         public int $limit,
     ) {

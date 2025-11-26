@@ -6,7 +6,7 @@ The name implies that the value objects and DTOs are self-aware in the sense tha
 
 As it's a central part of an application, it's tested thoroughly (including mutation testing).
 
-[![Latest Stable Version](https://img.shields.io/badge/stable-1.0.0-blue)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
+[![Latest Stable Version](https://img.shields.io/badge/stable-1.1.0-blue)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
 [![PHP Version Require](https://img.shields.io/badge/php-8.3|8.4-5b5d95)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
 [![codecov](https://codecov.io/gh/digital-craftsman-de/self-aware-normalizers/branch/main/graph/badge.svg?token=BL0JKZYLBG)](https://codecov.io/gh/digital-craftsman-de/self-aware-normalizers)
 ![Packagist Downloads](https://img.shields.io/packagist/dt/digital-craftsman/self-aware-normalizers)
@@ -49,6 +49,102 @@ To make the normalization process easier, there are the following normalizers in
 - `ArrayNormalizableNormalizer`
 
 Additionally, there is an interface for each of the normalizers. Every class that implements one of the interfaces, will be automatically normalized to the respected type. This means putting the logic of how serialization of a class works within the class. That's not really seen as a good practice. In my experience, the data structure and the normalization need to be changed together. So, I like it better to have both in one place. I've used this approach in multiple large scale projects for years and haven't had a single issue with it yet. But your mileage may vary.
+
+With this you can have nested denormalization that looks like this:
+
+```php
+/**
+ * @psalm-type NormalizedSearch = array{
+ *     searchTerm: string,
+ *     limit: int,
+ * }
+ */
+final readonly class Search implements ArrayNormalizable
+{
+    public function __construct(
+        public SearchTerm $searchTerm,
+        public Limit $limit,
+    ) {
+    }
+    
+    /**
+    * @param NormalizedSearch $data
+    */
+    public static function denormalize(array $data): self
+    {
+        return new self(
+            searchTerm: SearchTerm::denormalize($data['searchTerm']),
+            limit: Limit::denormalize($data['limit']),
+        );
+    }
+    
+    /**
+    * @return NormalizedSearch
+    */
+    public function normalize(): array
+    {
+        return [
+            'searchTerm' => $this->searchTerm->normalize(),
+            'limit' => $this->limit->normalize(),
+        ];
+    }
+}
+```
+
+#### Denormalized for null handling
+
+When handling `null` you can use the `Nullable*Denormalizable` interfaces with the related `Nullable*DenormalizableTrait` to handle switches between `null` and the class like the following:
+
+```php
+/**
+ * @psalm-type NormalizedSearchWithOptionalLimit = array{
+ *     searchTerm: string,
+ *     limit: int | null,
+ * }
+ */
+final readonly class SearchWithOptionalLimit implements ArrayNormalizable
+{
+    public function __construct(
+        public SearchTerm $searchTerm,
+        public ?Limit $limit,
+    ) {
+    }
+    
+    /**
+    * @param NormalizedSearchWithOptionalLimit $data
+    */
+    public static function denormalize(array $data): self
+    {
+        return new self(
+            searchTerm: SearchTerm::denormalize($data['searchTerm']),
+            limit: Limit::denormalizeWhenNotNull($data['limit']),
+        );
+    }
+    
+    /**
+    * @return NormalizedSearchWithOptionalLimit
+    */
+    public function normalize(): array
+    {
+        return [
+            'searchTerm' => $this->searchTerm->normalize(),
+            'limit' => $this->limit?->normalize(),
+        ];
+    }
+}
+```
+
+Internally the value object simply has to implement the relevant interface and use the related trait like the following:
+
+```php
+final readonly class Limit implements IntNormalizable, NullableIntDenormalizable
+{
+    use NullableIntDenormalizableTrait;
+
+    public function __construct(
+        public int $limit,
+        ...
+```
 
 ### Doctrine types
 

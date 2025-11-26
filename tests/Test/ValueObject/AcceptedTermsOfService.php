@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject;
 
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\BoolNormalizable;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableBoolDenormalizable;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableBoolDenormalizableTrait;
 
-final readonly class AcceptedTermsOfService implements BoolNormalizable
+final readonly class AcceptedTermsOfService implements BoolNormalizable, NullableBoolDenormalizable
 {
+    use NullableBoolDenormalizableTrait;
+
     public function __construct(
         public bool $hasAcceptedTermsOfService,
     ) {

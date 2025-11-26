@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject;
 
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\FloatNormalizable;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableFloatDenormalizable;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableFloatDenormalizableTrait;
 
-final readonly class Range implements FloatNormalizable
+final readonly class Range implements FloatNormalizable, NullableFloatDenormalizable
 {
+    use NullableFloatDenormalizableTrait;
+
     public function __construct(
         public float $range,
     ) {
