@@ -6,7 +6,7 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Serializer;
 
 trait NullableIntDenormalizableTrait
 {
-    public static function denormalizeWhenNotNull(?int $data): ?self
+    public static function denormalizeWhenNotNull(?int $data): ?static
     {
         return $data !== null
             ? self::denormalize($data)
