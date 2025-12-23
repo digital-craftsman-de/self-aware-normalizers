@@ -1,5 +1,11 @@
 # Upgrade guide
 
+## From 1.1.* to 1.2.0
+
+### Dropped support for PHP 8.3
+
+Update to at least PHP 8.4.
+
 ## From 1.0.* to 1.1.0
 
 Nothing to do.

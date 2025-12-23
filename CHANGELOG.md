@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0
+
+- Dropped support for PHP 8.3.
+- Added support for PHP 8.5.
+- Added support for Symfony ^8.0.
+
 ## 1.1.0
 
 - Added `denormalizeWhenNotNull` through interfaces and traits.
