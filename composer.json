@@ -1,22 +1,23 @@
 {
   "name": "digital-craftsman/self-aware-normalizers",
+  "version": "1.2.0",
   "description": "Adds interfaces and normalizers that allow value objects to normalize and denormalize themselves.",
   "type": "symfony-bundle",
   "require": {
     "php": "8.4.*|8.5.*",
-    "symfony/framework-bundle": "^7.1|^8.0",
-    "symfony/serializer": "^7.1|^8.0",
+    "symfony/framework-bundle": "^7.4|^8.0",
+    "symfony/serializer": "^7.4|^8.0",
     "doctrine/dbal": "^3.3.6",
     "league/construct-finder": "^1.5",
-    "symfony/yaml": "^7.1|^8.0"
+    "symfony/yaml": "^7.4|^8.0"
   },
   "require-dev": {
     "vimeo/psalm": "^6.0.0",
     "friendsofphp/php-cs-fixer": "^v3.68.5",
     "phpunit/phpunit": "^12.4",
     "infection/infection": "^0.31.8",
-    "symfony/property-access": "^7.1|^8.0",
-    "symfony/property-info": "^7.1|^8.0"
+    "symfony/property-access": "^7.4|^8.0",
+    "symfony/property-info": "^7.4|^8.0"
   },
   "autoload": {
     "psr-4": {
