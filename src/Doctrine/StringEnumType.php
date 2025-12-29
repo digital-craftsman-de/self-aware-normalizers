@@ -60,22 +60,4 @@ abstract class StringEnumType extends Type
 
         return $value->value;
     }
-
-    /**
-     * @codeCoverageIgnore
-     */
-    #[\Override]
-    public function getName(): string
-    {
-        return static::getTypeName();
-    }
-
-    /**
-     * @codeCoverageIgnore
-     */
-    #[\Override]
-    public function requiresSQLCommentHint(AbstractPlatform $platform): bool
-    {
-        return true;
-    }
 }
