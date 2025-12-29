@@ -60,22 +60,4 @@ abstract class ArrayNormalizableType extends Type
 
         return json_encode($array, JSON_THROW_ON_ERROR);
     }
-
-    /**
-     * @codeCoverageIgnore
-     */
-    #[\Override]
-    public function getName(): string
-    {
-        return static::getTypeName();
-    }
-
-    /**
-     * @codeCoverageIgnore
-     */
-    #[\Override]
-    public function requiresSQLCommentHint(AbstractPlatform $platform): bool
-    {
-        return true;
-    }
 }

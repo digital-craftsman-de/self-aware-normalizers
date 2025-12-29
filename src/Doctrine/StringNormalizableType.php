@@ -66,22 +66,4 @@ abstract class StringNormalizableType extends Type
 
         return $value->normalize();
     }
-
-    /**
-     * @codeCoverageIgnore
-     */
-    #[\Override]
-    public function getName(): string
-    {
-        return static::getTypeName();
-    }
-
-    /**
-     * @codeCoverageIgnore
-     */
-    #[\Override]
-    public function requiresSQLCommentHint(AbstractPlatform $platform): bool
-    {
-        return true;
-    }
 }

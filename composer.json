@@ -7,7 +7,7 @@
     "php": "8.4.*|8.5.*",
     "symfony/framework-bundle": "^7.4|^8.0",
     "symfony/serializer": "^7.4|^8.0",
-    "doctrine/dbal": "^3.3.6",
+    "doctrine/dbal": "^4.4.1",
     "league/construct-finder": "^1.5",
     "symfony/yaml": "^7.4|^8.0"
   },
@@ -15,7 +15,7 @@
     "vimeo/psalm": "^6.0.0",
     "friendsofphp/php-cs-fixer": "^v3.68.5",
     "phpunit/phpunit": "^12.4",
-    "infection/infection": "^0.31.8",
+    "infection/infection": "^0.32.0",
     "symfony/property-access": "^7.4|^8.0",
     "symfony/property-info": "^7.4|^8.0"
   },
