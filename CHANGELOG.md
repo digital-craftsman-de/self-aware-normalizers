@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.1
+
+- Fixed length handling for `StringNormalizableType` and `StringEnumType`.
+
 ## 1.2.0
 
 - Added support for PHP 8.5.
