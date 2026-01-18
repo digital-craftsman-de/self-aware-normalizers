@@ -12,7 +12,9 @@ abstract class StringNormalizableType extends Type
 {
     abstract public static function getTypeName(): string;
 
-    /** @return class-string<StringNormalizable> */
+    /**
+     * @return class-string<StringNormalizable>
+     */
     abstract public static function getClass(): string;
 
     /**
@@ -29,7 +31,7 @@ abstract class StringNormalizableType extends Type
     #[\Override]
     public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
     {
-        $column['length'] = $this->maxLength();
+        $column['length'] = $column['length'] ?? $this->maxLength();
 
         return $platform->getStringTypeDeclarationSQL($column);
     }
