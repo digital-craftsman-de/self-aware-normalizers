@@ -16,9 +16,19 @@ abstract class StringEnumType extends Type
     /**
      * @codeCoverageIgnore
      */
+    protected function maxLength(): int
+    {
+        return 255;
+    }
+
+    /**
+     * @codeCoverageIgnore
+     */
     #[\Override]
     public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
     {
+        $column['length'] = $column['length'] ?? $this->maxLength();
+
         return $platform->getStringTypeDeclarationSQL($column);
     }
 
