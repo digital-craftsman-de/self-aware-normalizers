@@ -1,6 +1,6 @@
 {
   "name": "digital-craftsman/self-aware-normalizers",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Adds interfaces and normalizers that allow value objects to normalize and denormalize themselves.",
   "type": "symfony-bundle",
   "require": {
