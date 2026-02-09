@@ -17,6 +17,9 @@ final class StringNormalizableThroughLookupType extends Type
         $reflectionClass = new \ReflectionClass($className);
 
         if ($reflectionClass->implementsInterface(NormalizableTypeWithSQLDeclaration::class)) {
+            /**
+             * @var NormalizableTypeWithSQLDeclaration $className
+             */
             return $className::getSQLDeclaration($column, $platform);
         }
 
@@ -24,9 +27,14 @@ final class StringNormalizableThroughLookupType extends Type
             return $platform->getClobTypeDeclarationSQL($column);
         }
 
-        $column['length'] = $reflectionClass->implementsInterface(StringNormalizableTypeWithMaxLength::class)
-            ? $column['length'] ?? $className::maxLength()
-            : $column['length'] ?? 255;
+        if ($reflectionClass->implementsInterface(StringNormalizableTypeWithMaxLength::class)) {
+            /**
+             * @var StringNormalizableTypeWithMaxLength $className
+             */
+            $column['length'] ??= $className::maxLength();
+        }
+
+        $column['length'] ??= 255;
 
         return $platform->getStringTypeDeclarationSQL($column);
     }

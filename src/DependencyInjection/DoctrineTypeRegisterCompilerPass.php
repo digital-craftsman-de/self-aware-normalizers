@@ -160,7 +160,7 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
                 continue;
             }
 
-            $typeName = $className->{self::TYPE_NAME_METHOD_NAME}();
+            $typeName = call_user_func([$className, self::TYPE_NAME_METHOD_NAME]);
 
             yield [
                 'class' => $reflection->getName(),

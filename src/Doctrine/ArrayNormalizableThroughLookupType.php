@@ -17,6 +17,9 @@ final class ArrayNormalizableThroughLookupType extends Type
         $reflectionClass = new \ReflectionClass($className);
 
         if ($reflectionClass->implementsInterface(NormalizableTypeWithSQLDeclaration::class)) {
+            /**
+             * @var NormalizableTypeWithSQLDeclaration $className
+             */
             return $className::getSQLDeclaration($column, $platform);
         }
 
