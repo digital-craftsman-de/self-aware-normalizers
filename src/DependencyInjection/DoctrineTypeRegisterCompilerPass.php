@@ -150,6 +150,16 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
                     'className' => $enum->name(),
                 ];
             }
+
+            /**
+             * @psalm-suppress TypeDoesNotContainType
+             */
+            if ($reflectionEnum->implementsInterface(IntNormalizable::class)) {
+                yield [
+                    'interface' => IntNormalizable::class,
+                    'className' => $enum->name(),
+                ];
+            }
         }
     }
 
