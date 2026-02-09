@@ -8,10 +8,7 @@ use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
 
 /**
- * @deprecated Will be removed in version 2.0.0. Should be replaced by extending the StringNormalizableType or use
- * StringNormalizableThroughLookupType with automatic registration.
- * @see StringNormalizableType
- * @see StringNormalizableThroughLookupType
+ * @deprecated Will be removed in version 2.0.0. Should be replaced with automatic registration.
  */
 abstract class StringEnumType extends Type
 {

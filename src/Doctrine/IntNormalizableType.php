@@ -8,6 +8,9 @@ use DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizable;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
 
+/**
+ * @deprecated Will be removed in version 2.0.0. Should be replaced with automatic registration.
+ */
 abstract class IntNormalizableType extends Type
 {
     abstract public static function getTypeName(): string;
