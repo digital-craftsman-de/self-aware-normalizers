@@ -11,6 +11,7 @@ use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 
 /**
  * @internal
+ *
  * @codeCoverageIgnore
  */
 final class SelfAwareNormalizersExtension extends Extension

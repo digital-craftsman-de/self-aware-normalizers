@@ -9,6 +9,7 @@ use Symfony\Component\Config\Definition\ConfigurationInterface;
 
 /**
  * @internal
+ *
  * @codeCoverageIgnore
  */
 final class Configuration implements ConfigurationInterface

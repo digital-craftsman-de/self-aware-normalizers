@@ -8,6 +8,7 @@ use Symfony\Component\HttpKernel\Bundle\Bundle;
 
 /**
  * @internal
+ *
  * @codeCoverageIgnore
  */
 final class SelfAwareNormalizersBundle extends Bundle
