@@ -139,7 +139,7 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
 
         $enumNames = $constructFinder->findEnums();
         foreach ($enumNames as $enumName) {
-            $reflectionEnum = new \ReflectionEnum($enumName);
+            $reflectionEnum = new \ReflectionEnum($enumName->name());
 
             /**
              * @psalm-suppress TypeDoesNotContainType
