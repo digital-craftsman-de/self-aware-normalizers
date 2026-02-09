@@ -20,8 +20,8 @@ final class StringNormalizableThroughLookupTypeTest extends TestCase
         $doctrineType = new StringNormalizableThroughLookupType();
         $platform = new PostgreSQLPlatform();
 
-        if (!StringNormalizableType::hasType(SearchTerm::class)) {
-            StringNormalizableType::addType(SearchTerm::class, $doctrineType);
+        if (!StringNormalizableThroughLookupType::hasType(SearchTerm::class)) {
+            StringNormalizableThroughLookupType::addType(SearchTerm::class, $doctrineType);
         }
 
         $value = new SearchTerm('peter');
@@ -57,8 +57,8 @@ final class StringNormalizableThroughLookupTypeTest extends TestCase
         $doctrineType = new StringNormalizableThroughLookupType();
         $platform = new PostgreSQLPlatform();
 
-        if (!StringNormalizableType::hasType(SearchTerm::class)) {
-            StringNormalizableType::addType(SearchTerm::class, $doctrineType);
+        if (!StringNormalizableThroughLookupType::hasType(SearchTerm::class)) {
+            StringNormalizableThroughLookupType::addType(SearchTerm::class, $doctrineType);
         }
 
         $value = null;
