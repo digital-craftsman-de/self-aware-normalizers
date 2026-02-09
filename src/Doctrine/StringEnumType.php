@@ -7,6 +7,13 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Doctrine;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
 
+/**
+ * @deprecated Will be removed in version 2.0.0. Should be replaced by extending the StringNormalizableType or use
+ * StringNormalizableThroughLookupType with automatic registration.
+ *
+ * @see StringNormalizableType
+ * @see StringNormalizableThroughLookupType
+ */
 abstract class StringEnumType extends Type
 {
     abstract public static function getTypeName(): string;

@@ -10,6 +10,7 @@ use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 
 /**
+ * @internal
  * @codeCoverageIgnore
  */
 final class SelfAwareNormalizersExtension extends Extension
@@ -27,6 +28,10 @@ final class SelfAwareNormalizersExtension extends Extension
 
         $config = $this->processConfiguration($configuration, $configs);
 
+        $container->setParameter(
+            Configuration::IMPLEMENTATION_DIRECTORIES_CONFIGURATION_PARAMETER,
+            $config[Configuration::IMPLEMENTATION_DIRECTORIES_KEY],
+        );
         $container->setParameter(
             Configuration::DOCTRINE_TYPE_DIRECTORIES_CONFIGURATION_PARAMETER,
             $config[Configuration::DOCTRINE_TYPE_DIRECTORIES_KEY],

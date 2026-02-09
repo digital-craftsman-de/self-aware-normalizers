@@ -2,11 +2,12 @@
 
 namespace DigitalCraftsman\SelfAwareNormalizers;
 
-use DigitalCraftsman\SelfAwareNormalizers\Doctrine\DoctrineTypeRegisterCompilerPass;
+use DigitalCraftsman\SelfAwareNormalizers\DependencyInjection\DoctrineTypeRegisterCompilerPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 
 /**
+ * @internal
  * @codeCoverageIgnore
  */
 final class SelfAwareNormalizersBundle extends Bundle
