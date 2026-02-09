@@ -138,8 +138,8 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
         }
 
         $enumNames = $constructFinder->findEnums();
-        foreach ($enumNames as $enumName) {
-            $reflectionEnum = new \ReflectionEnum($enumName->name());
+        foreach ($enumNames as $enum) {
+            $reflectionEnum = new \ReflectionEnum($enum->name());
 
             /**
              * @psalm-suppress TypeDoesNotContainType
@@ -147,7 +147,7 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
             if ($reflectionEnum->implementsInterface(StringNormalizable::class)) {
                 yield [
                     'interface' => StringNormalizable::class,
-                    'className' => $enumName,
+                    'className' => $enum->name(),
                 ];
             }
         }
