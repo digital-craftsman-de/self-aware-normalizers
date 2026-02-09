@@ -91,8 +91,9 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
      */
     private function findClassesImplementingInterfacesInDirectory(string $pathToDoctrineTypeDirectory): iterable
     {
-        $classNames = ConstructFinder::locatedIn($pathToDoctrineTypeDirectory)->findClassNames();
+        $constructFinder = ConstructFinder::locatedIn($pathToDoctrineTypeDirectory);
 
+        $classNames = $constructFinder->findClassNames();
         foreach ($classNames as $className) {
             $reflection = new \ReflectionClass($className);
 
@@ -132,6 +133,18 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
                 yield [
                     'interface' => IntNormalizable::class,
                     'className' => $className,
+                ];
+            }
+        }
+
+        $enumNames = $constructFinder->findEnums();
+        foreach ($enumNames as $enumName) {
+            $reflection = new \ReflectionEnum($enumName);
+
+            if ($reflection->implementsInterface(StringNormalizable::class)) {
+                yield [
+                    'interface' => StringNormalizable::class,
+                    'className' => $enumName,
                 ];
             }
         }
