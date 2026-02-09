@@ -95,9 +95,9 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
 
         $classNames = $constructFinder->findClassNames();
         foreach ($classNames as $className) {
-            $reflection = new \ReflectionClass($className);
+            $reflectionClass = new \ReflectionClass($className);
 
-            if ($reflection->implementsInterface(StringNormalizable::class)) {
+            if ($reflectionClass->implementsInterface(StringNormalizable::class)) {
                 yield [
                     'interface' => StringNormalizable::class,
                     'className' => $className,
@@ -105,7 +105,7 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
                 continue;
             }
 
-            if ($reflection->implementsInterface(ArrayNormalizable::class)) {
+            if ($reflectionClass->implementsInterface(ArrayNormalizable::class)) {
                 yield [
                     'interface' => ArrayNormalizable::class,
                     'className' => $className,
@@ -113,7 +113,7 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
                 continue;
             }
 
-            if ($reflection->implementsInterface(BoolNormalizable::class)) {
+            if ($reflectionClass->implementsInterface(BoolNormalizable::class)) {
                 yield [
                     'interface' => BoolNormalizable::class,
                     'className' => $className,
@@ -121,7 +121,7 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
                 continue;
             }
 
-            if ($reflection->implementsInterface(FloatNormalizable::class)) {
+            if ($reflectionClass->implementsInterface(FloatNormalizable::class)) {
                 yield [
                     'interface' => FloatNormalizable::class,
                     'className' => $className,
@@ -129,7 +129,7 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
                 continue;
             }
 
-            if ($reflection->implementsInterface(IntNormalizable::class)) {
+            if ($reflectionClass->implementsInterface(IntNormalizable::class)) {
                 yield [
                     'interface' => IntNormalizable::class,
                     'className' => $className,
@@ -139,9 +139,12 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
 
         $enumNames = $constructFinder->findEnums();
         foreach ($enumNames as $enumName) {
-            $reflection = new \ReflectionEnum($enumName);
+            $reflectionEnum = new \ReflectionEnum($enumName);
 
-            if ($reflection->implementsInterface(StringNormalizable::class)) {
+            /**
+             * @psalm-suppress TypeDoesNotContainType
+             */
+            if ($reflectionEnum->implementsInterface(StringNormalizable::class)) {
                 yield [
                     'interface' => StringNormalizable::class,
                     'className' => $enumName,
