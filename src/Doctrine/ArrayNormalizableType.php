@@ -26,9 +26,7 @@ abstract class ArrayNormalizableType extends Type
     #[\Override]
     public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
     {
-        $column['jsonb'] = true;
-
-        return $platform->getJsonTypeDeclarationSQL($column);
+        return $platform->getJsonbTypeDeclarationSQL($column);
     }
 
     /**
