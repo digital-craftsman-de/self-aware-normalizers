@@ -23,9 +23,7 @@ final class ArrayNormalizableThroughLookupType extends Type
             return $className::getSQLDeclaration($column, $platform);
         }
 
-        $column['jsonb'] = true;
-
-        return $platform->getJsonTypeDeclarationSQL($column);
+        return $platform->getJsonbTypeDeclarationSQL($column);
     }
 
     /**
