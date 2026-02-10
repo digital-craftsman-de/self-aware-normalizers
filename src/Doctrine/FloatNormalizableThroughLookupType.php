@@ -8,24 +8,21 @@ use DigitalCraftsman\SelfAwareNormalizers\Serializer\FloatNormalizable;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
 
-/**
- * @deprecated Will be removed in version 2.0.0. Should be replaced with automatic registration.
- */
-abstract class FloatNormalizableType extends Type
+final class FloatNormalizableThroughLookupType extends Type
 {
-    abstract public static function getTypeName(): string;
-
-    /**
-     * @return class-string<FloatNormalizable>
-     */
-    abstract public static function getClass(): string;
-
-    /**
-     * @codeCoverageIgnore
-     */
     #[\Override]
     public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
     {
+        $className = $this->getClassNameThroughLookup();
+        $reflectionClass = new \ReflectionClass($className);
+
+        if ($reflectionClass->implementsInterface(NormalizableTypeWithSQLDeclaration::class)) {
+            /**
+             * @var NormalizableTypeWithSQLDeclaration $className
+             */
+            return $className::getSQLDeclaration($column, $platform);
+        }
+
         return $platform->getFloatDeclarationSQL($column);
     }
 
@@ -39,12 +36,9 @@ abstract class FloatNormalizableType extends Type
             return null;
         }
 
-        /**
-         * @var class-string<FloatNormalizable> $class
-         */
-        $class = static::getClass();
+        $className = $this->getClassNameThroughLookup();
 
-        return $class::denormalize((float) $value);
+        return $className::denormalize((float) $value);
     }
 
     /**
@@ -62,5 +56,21 @@ abstract class FloatNormalizableType extends Type
         }
 
         return $value->normalize();
+    }
+
+    /**
+     * @return class-string<FloatNormalizable>
+     */
+    private function getClassNameThroughLookup(): string
+    {
+        /**
+         * @var class-string<FloatNormalizable> $className
+         */
+        $className = self::lookupName($this);
+        if (!class_exists($className)) {
+            throw new Exception\InvalidTypeName($className);
+        }
+
+        return $className;
     }
 }

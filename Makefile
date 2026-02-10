@@ -41,17 +41,6 @@ down: .down
 .down:
 	docker compose down
 
-## update				Rebuild Docker images and start stack.
-.PHONY: update
-update: build up
-
-## reset				Teardown stack, install and start.
-.PHONY: reset
-reset: .reset
-
-.PHONY: .reset
-.reset: .down .install .up
-
 ## install			Install PHP dependencies with the default PHP version (8.5).
 .PHONY: .install
 install: install-8.5

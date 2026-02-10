@@ -9,12 +9,19 @@
     "@default": true,
     "IncrementInteger": {
       "ignore": [
-        "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableType::convertToPHPValue"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableType::convertToPHPValue",
+        "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableThroughLookupType::convertToPHPValue"
       ]
     },
     "DecrementInteger": {
       "ignore": [
-        "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableType::convertToPHPValue"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableType::convertToPHPValue",
+        "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableThroughLookupType::convertToPHPValue"
+      ]
+    },
+    "MethodCallRemoval": {
+      "ignore": [
+        "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\Exception\\InvalidTypeName::__construct"
       ]
     }
   },

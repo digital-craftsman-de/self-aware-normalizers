@@ -8,24 +8,21 @@ use DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizable;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
 
-/**
- * @deprecated Will be removed in version 2.0.0. Should be replaced with automatic registration.
- */
-abstract class IntNormalizableType extends Type
+final class IntNormalizableThroughLookupType extends Type
 {
-    abstract public static function getTypeName(): string;
-
-    /**
-     * @return class-string<IntNormalizable>
-     */
-    abstract public static function getClass(): string;
-
-    /**
-     * @codeCoverageIgnore
-     */
     #[\Override]
     public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
     {
+        $className = $this->getClassNameThroughLookup();
+        $reflectionClass = new \ReflectionClass($className);
+
+        if ($reflectionClass->implementsInterface(NormalizableTypeWithSQLDeclaration::class)) {
+            /**
+             * @var NormalizableTypeWithSQLDeclaration $className
+             */
+            return $className::getSQLDeclaration($column, $platform);
+        }
+
         return $platform->getIntegerTypeDeclarationSQL($column);
     }
 
@@ -39,10 +36,9 @@ abstract class IntNormalizableType extends Type
             return null;
         }
 
-        /** @var class-string<IntNormalizable> $class */
-        $class = static::getClass();
+        $className = $this->getClassNameThroughLookup();
 
-        return $class::denormalize($value);
+        return $className::denormalize($value);
     }
 
     /**
@@ -60,5 +56,21 @@ abstract class IntNormalizableType extends Type
         }
 
         return $value->normalize();
+    }
+
+    /**
+     * @return class-string<IntNormalizable>
+     */
+    private function getClassNameThroughLookup(): string
+    {
+        /**
+         * @var class-string<IntNormalizable> $className
+         */
+        $className = self::lookupName($this);
+        if (!class_exists($className)) {
+            throw new Exception\InvalidTypeName($className);
+        }
+
+        return $className;
     }
 }

@@ -8,24 +8,21 @@ use DigitalCraftsman\SelfAwareNormalizers\Serializer\BoolNormalizable;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
 
-/**
- * @deprecated Will be removed in version 2.0.0. Should be replaced with automatic registration.
- */
-abstract class BoolNormalizableType extends Type
+final class BoolNormalizableThroughLookupType extends Type
 {
-    abstract public static function getTypeName(): string;
-
-    /**
-     * @return class-string<BoolNormalizable>
-     */
-    abstract public static function getClass(): string;
-
-    /**
-     * @codeCoverageIgnore
-     */
     #[\Override]
     public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
     {
+        $className = $this->getClassNameThroughLookup();
+        $reflectionClass = new \ReflectionClass($className);
+
+        if ($reflectionClass->implementsInterface(NormalizableTypeWithSQLDeclaration::class)) {
+            /**
+             * @var NormalizableTypeWithSQLDeclaration $className
+             */
+            return $className::getSQLDeclaration($column, $platform);
+        }
+
         return $platform->getBooleanTypeDeclarationSQL($column);
     }
 
@@ -39,10 +36,9 @@ abstract class BoolNormalizableType extends Type
             return null;
         }
 
-        /** @var class-string<BoolNormalizable> $class */
-        $class = static::getClass();
+        $className = $this->getClassNameThroughLookup();
 
-        return $class::denormalize($value);
+        return $className::denormalize($value);
     }
 
     /**
@@ -60,5 +56,21 @@ abstract class BoolNormalizableType extends Type
         }
 
         return $value->normalize();
+    }
+
+    /**
+     * @return class-string<BoolNormalizable>
+     */
+    private function getClassNameThroughLookup(): string
+    {
+        /**
+         * @var class-string<BoolNormalizable> $className
+         */
+        $className = self::lookupName($this);
+        if (!class_exists($className)) {
+            throw new Exception\InvalidTypeName($className);
+        }
+
+        return $className;
     }
 }

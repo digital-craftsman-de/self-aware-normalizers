@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0
+
+- Added new doctrine types that are registered automatically depending on the interface.
+- Deprecated previous doctrine types. They should be replaced with the automatic registration.
+- Fixed deprecation for JSONB type.
+
 ## 1.2.1
 
 - Fixed length handling for `StringNormalizableType` and `StringEnumType`.

@@ -1,5 +1,14 @@
 # Upgrade guide
 
+## From 1.2.* to 1.3.0
+
+### Switch to automatic doctrine types
+
+- Add the directories that contain implementations of the interfaces to `self_aware_normalizers.implementation_directories`.
+- Use the full class string in the doctrine column `type` instead of the custom names (see [README - Automatic doctrine types](./README.md#automatic-doctrine-types)).
+- Implement the necessary additional interfaces when needed.
+- Remove all custom doctrine types.
+
 ## From 1.1.* to 1.2.0
 
 ### Dropped support for PHP 8.3

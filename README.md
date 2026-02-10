@@ -6,7 +6,7 @@ The name implies that the value objects and DTOs are self-aware in the sense tha
 
 As it's a central part of an application, it's tested thoroughly (including mutation testing).
 
-[![Latest Stable Version](https://img.shields.io/badge/stable-1.2.1-blue)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
+[![Latest Stable Version](https://img.shields.io/badge/stable-1.3.0-blue)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
 [![PHP Version Require](https://img.shields.io/badge/php-8.4|8.5-5b5d95)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
 [![codecov](https://codecov.io/gh/digital-craftsman-de/self-aware-normalizers/branch/main/graph/badge.svg?token=BL0JKZYLBG)](https://codecov.io/gh/digital-craftsman-de/self-aware-normalizers)
 ![Packagist Downloads](https://img.shields.io/packagist/dt/digital-craftsman/self-aware-normalizers)
@@ -20,23 +20,7 @@ Install package through composer:
 composer require digital-craftsman/self-aware-normalizers
 ```
 
-Optionally, you can add a `self-aware-normalizers.php` file to your `config/packages` directory to configure the bundle to automatically register all custom doctrine types in one or multiple directories:
-
-```php
-<?php
-
-declare(strict_types=1);
-
-use Symfony\Component\DependencyInjection\Loader\Configurator\App;
-
-return App::config([
-    'self_aware_normalizers' => [
-        'doctrine_type_directories' => [
-            '%kernel.project_dir%/src/Doctrine',
-        ],
-    ],
-]);
-```
+Optionally, you can add a `self-aware-normalizers.php` file to your `config/packages`. The options are described below.
 
 ## Usage
 
@@ -150,14 +134,84 @@ final readonly class Limit implements IntNormalizable, NullableIntDenormalizable
 
 ### Doctrine types
 
-When using the normalizers, you can also use the same logic for doctrine types. Simply create a new doctrine type extending of one of the following types and register them:
+When using the normalizers, you can also use the same logic for doctrine types. 
 
-- `StringNormalizableType`
-- `StringEnumType`
-- `IntNormalizableType`
-- `FloatNormalizableType`
-- `BoolNormalizableType`
-- `ArrayNormalizableType`
+#### Automatic doctrine types
+
+You don't even need to define custom doctrine types. All you need to do is to add the directory your implementing classes are into the `config/packages/self-aware-normalizers.php` configuration:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Symfony\Component\DependencyInjection\Loader\Configurator\App;
+
+return App::config([
+    'self_aware_normalizers' => [
+        'implementation_directories' => [
+            '%kernel.project_dir%/src/ValueObject',
+        ],
+    ],
+]);
+```
+
+Now you can use the implementing classes themselves directly in your entity like the following:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Entity;
+
+use App\ValueObject\UserName;
+use Doctrine\ORM\Mapping as ORM;
+
+#[ORM\Entity(repositoryClass: UserRepository::class)]
+#[ORM\Table(name: '`user`')]
+class User
+{
+    ...
+    
+    #[ORM\Column(name: 'name', type: UserName::class)]
+    public UserName $name;
+    
+    ...
+}
+```
+
+There are 3 interfaces that can be used for customization how the doctrine type behaves when implementing them in you classes:
+
+##### `NormalizableTypeWithSQLDeclaration`  
+Adds a custom SQL declaration
+
+##### `StringNormalizableTypeAsTypeText`  
+Uses type `TEXT` instead of the default `VARCHAR(255)` for strings.
+
+##### `StringNormalizableTypeWithMaxLength`  
+Defines the max length for strings. For example: `VARCHAR(50)`.
+
+#### Custom doctrine types
+
+If you do have custom doctrine types, you can also add them to the second configuration option for them to be registered automatically. They just need to contain the `public static function getTypeName(): string` method.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Symfony\Component\DependencyInjection\Loader\Configurator\App;
+
+return App::config([
+    'self_aware_normalizers' => [
+        'doctrine_type_directories' => [
+            '%kernel.project_dir%/src/Doctrine',
+        ],
+    ],
+]);
+
+```
 
 As an added bonus, this makes sure, that the structure is always the same no matter if you're using Doctrine to read from the data or a normalizer.
 
