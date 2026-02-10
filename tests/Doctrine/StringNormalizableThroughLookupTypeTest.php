@@ -40,7 +40,7 @@ final class StringNormalizableThroughLookupTypeTest extends TestCase
         $databaseValue = $doctrineType->convertToDatabaseValue($value, $platform);
         $convertedValue = $doctrineType->convertToPHPValue($databaseValue, $platform);
 
-        $convertedValueThatWasAStringBefore = $doctrineType->convertToDatabaseValue($value->search, $platform);
+        $convertedValueThatWasAStringBefore = $doctrineType->convertToDatabaseValue($plainValue, $platform);
 
         $databaseNullValue = $doctrineType->convertToDatabaseValue($nullValue, $platform);
         $convertedNullValue = $doctrineType->convertToPHPValue($databaseNullValue, $platform);
