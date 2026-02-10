@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace DigitalCraftsman\SelfAwareNormalizers\Test\DTO;
 
+use DigitalCraftsman\SelfAwareNormalizers\Doctrine\NormalizableTypeWithSQLDeclaration;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\ArrayNormalizable;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableArrayDenormalizable;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableArrayDenormalizableTrait;
+use Doctrine\DBAL\Platforms\AbstractPlatform;
 
 /**
  * @psalm-import-type NormalizedSearch from Search
@@ -16,7 +18,7 @@ use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableArrayDenormalizable
  *     search: NormalizedSearch | null,
  * }
  */
-final readonly class GetUsersQuery implements ArrayNormalizable, NullableArrayDenormalizable
+final readonly class GetUsersQuery implements ArrayNormalizable, NullableArrayDenormalizable, NormalizableTypeWithSQLDeclaration
 {
     use NullableArrayDenormalizableTrait;
 
@@ -50,5 +52,13 @@ final readonly class GetUsersQuery implements ArrayNormalizable, NullableArrayDe
             'userId' => $this->userId,
             'search' => $this->search?->normalize(),
         ];
+    }
+
+    #[\Override]
+    public static function getSQLDeclaration(
+        array $column,
+        AbstractPlatform $platform
+    ): string {
+        return 'JSON';
     }
 }
