@@ -16,6 +16,11 @@
       "ignore": [
         "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableType::convertToPHPValue"
       ]
+    },
+    "MethodCallRemoval": {
+      "ignore": [
+        "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\Exception\\InvalidTypeName::__construct"
+      ]
     }
   },
   "minMsi": 100,

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DigitalCraftsman\SelfAwareNormalizers\Doctrine\Exception;
 
 /**
+ * @internal
+ *
  * @psalm-immutable
  */
 final class InvalidTypeName extends \InvalidArgumentException
