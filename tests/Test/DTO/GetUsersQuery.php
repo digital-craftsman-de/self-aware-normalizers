@@ -57,7 +57,7 @@ final readonly class GetUsersQuery implements ArrayNormalizable, NullableArrayDe
     #[\Override]
     public static function getSQLDeclaration(
         array $column,
-        AbstractPlatform $platform
+        AbstractPlatform $platform,
     ): string {
         return 'JSON';
     }
