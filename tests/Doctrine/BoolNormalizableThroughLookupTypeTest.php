@@ -80,7 +80,7 @@ final class BoolNormalizableThroughLookupTypeTest extends TestCase
 
         Type::addType(sprintf('invalid-%s', AcceptedTermsOfService::class), $doctrineType);
 
-        $value = 50;
+        $value = true;
 
         // -- Act
         $doctrineType->convertToPHPValue($value, $platform);
