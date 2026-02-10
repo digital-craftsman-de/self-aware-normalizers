@@ -20,23 +20,7 @@ Install package through composer:
 composer require digital-craftsman/self-aware-normalizers
 ```
 
-Optionally, you can add a `self-aware-normalizers.php` file to your `config/packages` directory to configure the bundle to automatically register all custom doctrine types in one or multiple directories:
-
-```php
-<?php
-
-declare(strict_types=1);
-
-use Symfony\Component\DependencyInjection\Loader\Configurator\App;
-
-return App::config([
-    'self_aware_normalizers' => [
-        'doctrine_type_directories' => [
-            '%kernel.project_dir%/src/Doctrine',
-        ],
-    ],
-]);
-```
+Optionally, you can add a `self-aware-normalizers.php` file to your `config/packages`. The options are described below.
 
 ## Usage
 
