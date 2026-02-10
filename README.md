@@ -150,14 +150,84 @@ final readonly class Limit implements IntNormalizable, NullableIntDenormalizable
 
 ### Doctrine types
 
-When using the normalizers, you can also use the same logic for doctrine types. Simply create a new doctrine type extending of one of the following types and register them:
+When using the normalizers, you can also use the same logic for doctrine types. 
 
-- `StringNormalizableType`
-- `StringEnumType`
-- `IntNormalizableType`
-- `FloatNormalizableType`
-- `BoolNormalizableType`
-- `ArrayNormalizableType`
+#### Automatic doctrine types
+
+You don't even need to define custom doctrine types. All you need to do is to add the directory your implementing classes are into the `config/packages/self-aware-normalizers.php` configuration:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Symfony\Component\DependencyInjection\Loader\Configurator\App;
+
+return App::config([
+    'self_aware_normalizers' => [
+        'implementation_directories' => [
+            '%kernel.project_dir%/src/ValueObject',
+        ],
+    ],
+]);
+```
+
+Now you can use the implementing classes themselves directly in your entity like the following:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Entity;
+
+use App\ValueObject\UserName;
+use Doctrine\ORM\Mapping as ORM;
+
+#[ORM\Entity(repositoryClass: UserRepository::class)]
+#[ORM\Table(name: '`user`')]
+class User
+{
+    ...
+    
+    #[ORM\Column(name: 'name', type: UserName::class)]
+    public UserName $name;
+    
+    ...
+}
+```
+
+There are 3 interfaces that can be used for customization how the doctrine type behaves when implementing them in you classes:
+
+**`NormalizableTypeWithSQLDeclaration`**
+Adds a custom SQL declaration
+
+**`StringNormalizableTypeAsTypeText`**
+Uses type `TEXT` instead of the default `VARCHAR(255)` for strings.
+
+**`StringNormalizableTypeWithMaxLength`**
+Defines the max length for strings. For example: `VARCHAR(50)`.
+
+#### Custom doctrine types
+
+If you do have custom doctrine types, you can also add them to the second configuration option for them to be registered automatically. They just need to contain the `public static function getTypeName(): string` method.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Symfony\Component\DependencyInjection\Loader\Configurator\App;
+
+return App::config([
+    'self_aware_normalizers' => [
+        'doctrine_type_directories' => [
+            '%kernel.project_dir%/src/Doctrine',
+        ],
+    ],
+]);
+
+```
 
 As an added bonus, this makes sure, that the structure is always the same no matter if you're using Doctrine to read from the data or a normalizer.
 
