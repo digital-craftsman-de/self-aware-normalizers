@@ -183,13 +183,13 @@ class User
 
 There are 3 interfaces that can be used for customization how the doctrine type behaves when implementing them in you classes:
 
-**`NormalizableTypeWithSQLDeclaration`**
+**`NormalizableTypeWithSQLDeclaration`** 
 Adds a custom SQL declaration
 
-**`StringNormalizableTypeAsTypeText`**
+**`StringNormalizableTypeAsTypeText`** 
 Uses type `TEXT` instead of the default `VARCHAR(255)` for strings.
 
-**`StringNormalizableTypeWithMaxLength`**
+**`StringNormalizableTypeWithMaxLength`** 
 Defines the max length for strings. For example: `VARCHAR(50)`.
 
 #### Custom doctrine types
