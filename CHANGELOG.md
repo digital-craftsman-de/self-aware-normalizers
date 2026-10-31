@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0
+
+- Added support for PHP 8.6.
+- Dropped support for PHP 8.4.
+
 ## 1.3.0
 
 - Added new doctrine types that are registered automatically depending on the interface.
