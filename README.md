@@ -1,10 +1,6 @@
-# Enable value objects to normalize and denormalize themselves
+# Self-aware normalizers
 
-A Symfony bundle to enable value objects and DTOs to normalize and denormalize themselves through implementing simple interfaces that normalize to scalar values and denormalize themselves from scalar values (`string`, `int`, `float`, `bool` and `array`). Adding this kind of logic to the classes themselves might be considered a bad practice, but depending on the use case it will actually be better due to the fact that the data structure and the normalization need to be changed together.
-
-The name implies that the value objects and DTOs are self-aware in the sense that they know how to normalize and denormalize themselves and that they are self-aware enough to do so 🙂 
-
-As it's a central part of an application, it's tested thoroughly (including mutation testing).
+Value objects and DTOs that know how to normalize and denormalize themselves. Implement one small interface and the class works with the Symfony serializer and as a Doctrine type – without writing a single custom normalizer or Doctrine type.
 
 [![Latest Stable Version](https://img.shields.io/badge/stable-1.4.0-blue)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
 [![PHP Version Require](https://img.shields.io/badge/php-8.5|8.6-5b5d95)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
@@ -12,31 +8,95 @@ As it's a central part of an application, it's tested thoroughly (including muta
 ![Packagist Downloads](https://img.shields.io/packagist/dt/digital-craftsman/self-aware-normalizers)
 ![Packagist License](https://img.shields.io/packagist/l/digital-craftsman/self-aware-normalizers)
 
-## Installation and configuration
+## Why?
 
-Install package through composer:
+- **One place for structure and format.** A class and its normalized form always change together. Keeping both in the same class means you can't forget one of them.
+- **No boilerplate.** No custom normalizer per class and no custom Doctrine type per value object. The bundle registers everything automatically.
+- **Same format everywhere.** The serializer and Doctrine use the same `normalize()` and `denormalize()` methods, so your API and your database always store the same structure.
+- **Explicit and type safe.** Normalization is plain PHP code instead of reflection magic. Static analysis tools like Psalm and PHPStan understand every step.
+- **Reliable.** It's a central part of an application, so it's tested thoroughly, including mutation testing with 100% MSI.
+
+## Installation
+
+Requires PHP 8.5 or 8.6, Symfony 7.4 or 8 and Doctrine DBAL 4.
 
 ```shell
 composer require digital-craftsman/self-aware-normalizers
 ```
 
-Optionally, you can add a `self-aware-normalizers.php` file to your `config/packages`. The options are described below.
+The normalizers are registered automatically. The configuration is only needed for the [Doctrine types](#doctrine-types).
+
+### Configuration
+
+All options are optional. Add a `config/packages/self-aware-normalizers.php` when you need them:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Symfony\Component\DependencyInjection\Loader\Configurator\App;
+
+return App::config([
+    'self_aware_normalizers' => [
+        // Classes and enums implementing one of the interfaces are registered as Doctrine types.
+        'implementation_directories' => [
+            '%kernel.project_dir%/src/ValueObject',
+        ],
+        // Custom Doctrine types with a static getTypeName() method are registered automatically.
+        'doctrine_type_directories' => [
+            '%kernel.project_dir%/src/Doctrine',
+        ],
+    ],
+]);
+```
+
+The directories are scanned recursively when the container is built. In the `dev` environment, the container is rebuilt automatically when files in these directories are added, changed or removed.
 
 ## Usage
 
-### Normalizers
+### Value objects
 
-To make the normalization process easier, there are the following normalizers included:
+Implement the interface that matches the normalized type:
 
-- `StringNormalizableNormalizer`
-- `IntNormalizableNormalizer`
-- `FloatNormalizableNormalizer`
-- `BoolNormalizableNormalizer`
-- `ArrayNormalizableNormalizer`
+| Interface | Normalizes to |
+|---|---|
+| `StringNormalizable` | `string` |
+| `IntNormalizable` | `int` |
+| `FloatNormalizable` | `float` |
+| `BoolNormalizable` | `bool` |
+| `ArrayNormalizable` | `array` |
 
-Additionally, there is an interface for each of the normalizers. Every class that implements one of the interfaces, will be automatically normalized to the respected type. This means putting the logic of how serialization of a class works within the class. That's not really seen as a good practice. In my experience, the data structure and the normalization need to be changed together. So, I like it better to have both in one place. I've used this approach in multiple large scale projects for years and haven't had a single issue with it yet. But your mileage may vary.
+```php
+final readonly class SearchTerm implements StringNormalizable
+{
+    public function __construct(
+        public string $searchTerm,
+    ) {
+    }
 
-With this you can have nested denormalization that looks like this:
+    public static function denormalize(string $data): self
+    {
+        return new self($data);
+    }
+
+    public function normalize(): string
+    {
+        return $this->searchTerm;
+    }
+}
+```
+
+That's it. The Symfony serializer now handles `SearchTerm` everywhere it's used:
+
+```php
+$searchTerm = $serializer->denormalize('Symfony', SearchTerm::class);
+$normalized = $serializer->normalize($searchTerm); // 'Symfony'
+```
+
+### Nested objects
+
+Objects containing other objects simply call `normalize()` and `denormalize()` of their properties:
 
 ```php
 /**
@@ -52,10 +112,10 @@ final readonly class Search implements ArrayNormalizable
         public Limit $limit,
     ) {
     }
-    
+
     /**
-    * @param NormalizedSearch $data
-    */
+     * @param NormalizedSearch $data
+     */
     public static function denormalize(array $data): self
     {
         return new self(
@@ -63,10 +123,10 @@ final readonly class Search implements ArrayNormalizable
             limit: Limit::denormalize($data['limit']),
         );
     }
-    
+
     /**
-    * @return NormalizedSearch
-    */
+     * @return NormalizedSearch
+     */
     public function normalize(): array
     {
         return [
@@ -77,132 +137,92 @@ final readonly class Search implements ArrayNormalizable
 }
 ```
 
-#### Denormalized for null handling
+### Enums
 
-When handling `null` you can use the `Nullable*Denormalizable` interfaces with the related `Nullable*DenormalizableTrait` to handle switches between `null` and the class like the following:
+Backed enums only need the interface and the matching trait:
 
 ```php
-/**
- * @psalm-type NormalizedSearchWithOptionalLimit = array{
- *     searchTerm: string,
- *     limit: int | null,
- * }
- */
-final readonly class SearchWithOptionalLimit implements ArrayNormalizable
+enum UserRole: string implements StringNormalizable
 {
-    public function __construct(
-        public SearchTerm $searchTerm,
-        public ?Limit $limit,
-    ) {
-    }
-    
-    /**
-    * @param NormalizedSearchWithOptionalLimit $data
-    */
-    public static function denormalize(array $data): self
-    {
-        return new self(
-            searchTerm: SearchTerm::denormalize($data['searchTerm']),
-            limit: Limit::denormalizeWhenNotNull($data['limit']),
-        );
-    }
-    
-    /**
-    * @return NormalizedSearchWithOptionalLimit
-    */
-    public function normalize(): array
-    {
-        return [
-            'searchTerm' => $this->searchTerm->normalize(),
-            'limit' => $this->limit?->normalize(),
-        ];
-    }
+    use StringNormalizableEnumTrait;
+
+    case ROLE_USER = 'ROLE_USER';
+    case ROLE_ADMIN = 'ROLE_ADMIN';
 }
 ```
 
-Internally the value object simply has to implement the relevant interface and use the related trait like the following:
+Use `IntNormalizableEnumTrait` for enums backed by `int`.
+
+### Nullable values
+
+For optional values, add the `Nullable*Denormalizable` interface and the matching trait. You then get a `denormalizeWhenNotNull()` method that returns `null` for `null`:
 
 ```php
 final readonly class Limit implements IntNormalizable, NullableIntDenormalizable
 {
     use NullableIntDenormalizableTrait;
 
-    public function __construct(
-        public int $limit,
-        ...
-```
-
-### Doctrine types
-
-When using the normalizers, you can also use the same logic for doctrine types. 
-
-#### Automatic doctrine types
-
-You don't even need to define custom doctrine types. All you need to do is to add the directory your implementing classes are into the `config/packages/self-aware-normalizers.php` configuration:
-
-```php
-<?php
-
-declare(strict_types=1);
-
-use Symfony\Component\DependencyInjection\Loader\Configurator\App;
-
-return App::config([
-    'self_aware_normalizers' => [
-        'implementation_directories' => [
-            '%kernel.project_dir%/src/ValueObject',
-        ],
-    ],
-]);
-```
-
-Now you can use the implementing classes themselves directly in your entity like the following:
-
-```php
-<?php
-
-declare(strict_types=1);
-
-namespace App\Entity;
-
-use App\ValueObject\UserName;
-use Doctrine\ORM\Mapping as ORM;
-
-#[ORM\Entity(repositoryClass: UserRepository::class)]
-#[ORM\Table(name: '`user`')]
-class User
-{
-    ...
-    
-    #[ORM\Column(name: 'name', type: UserName::class)]
-    public UserName $name;
-    
-    ...
+    // ...
 }
 ```
 
-There are 3 interfaces that can be used for customization how the doctrine type behaves when implementing them in you classes:
+```php
+return new self(
+    searchTerm: SearchTerm::denormalize($data['searchTerm']),
+    limit: Limit::denormalizeWhenNotNull($data['limit']),
+);
+```
 
-##### `NormalizableTypeWithSQLDeclaration`  
-Adds a custom SQL declaration
+Interfaces and traits exist for all types: `NullableStringDenormalizable`, `NullableIntDenormalizable`, `NullableFloatDenormalizable`, `NullableBoolDenormalizable` and `NullableArrayDenormalizable`.
 
-##### `StringNormalizableTypeAsTypeText`  
-Uses type `TEXT` instead of the default `VARCHAR(255)` for strings.
+## Doctrine types
 
-##### `StringNormalizableTypeWithMaxLength`  
-Defines the max length for strings. For example: `VARCHAR(50)`.
+### Automatic Doctrine types
 
-#### Custom doctrine types
-
-If you do have custom doctrine types, you can also add them to the second configuration option for them to be registered automatically. They just need to contain the `public static function getTypeName(): string` method.
+Add the directories containing your value objects to `implementation_directories` (see [Configuration](#configuration)). Every class and enum in these directories that implements one of the interfaces is registered as a Doctrine type. Use the class name as the column type:
 
 ```php
-<?php
+#[ORM\Entity]
+class User
+{
+    #[ORM\Column(name: 'name', type: UserName::class)]
+    public UserName $name;
+}
+```
 
-declare(strict_types=1);
+Types that are already registered under the same name (for example in your `doctrine.yaml`) take precedence and aren't overwritten.
 
-use Symfony\Component\DependencyInjection\Loader\Configurator\App;
+In queries, you can use plain scalar values instead of value objects. Values of type `string`, `int`, `float` and `bool` are passed through to the database as they are:
 
+```php
+$queryBuilder
+    ->where('user.name = :name')
+    ->setParameter('name', 'Jane', UserName::class);
+```
+
+### Column types
+
+| Interface | Default column type |
+|---|---|
+| `StringNormalizable` | `VARCHAR(255)` |
+| `IntNormalizable` | `INTEGER` |
+| `FloatNormalizable` | `DOUBLE PRECISION` |
+| `BoolNormalizable` | `BOOLEAN` |
+| `ArrayNormalizable` | `JSONB` on PostgreSQL, `JSON` on other platforms |
+
+The exact type depends on your database platform. Implement one of these interfaces in your class to change it:
+
+| Interface | Effect |
+|---|---|
+| `StringNormalizableTypeWithMaxLength` | Sets the max length, e.g. `VARCHAR(50)`. |
+| `StringNormalizableTypeAsTypeText` | Uses `TEXT` instead of `VARCHAR`. |
+| `NormalizableTypeWithSQLDeclaration` | Defines a completely custom SQL declaration. |
+
+### Custom Doctrine types
+
+Have your own Doctrine types? Add their directories as well and they are registered automatically. They only need a `public static function getTypeName(): string` method.
+
+```php
 return App::config([
     'self_aware_normalizers' => [
         'doctrine_type_directories' => [
@@ -210,10 +230,13 @@ return App::config([
         ],
     ],
 ]);
-
 ```
 
-As an added bonus, this makes sure, that the structure is always the same no matter if you're using Doctrine to read from the data or a normalizer.
+The abstract base types like `StringNormalizableType` are deprecated and will be removed in 2.0.0. Switch to the automatic Doctrine types as described in the [upgrade guide](./UPGRADE.md#from-12-to-130).
+
+## Isn't normalization in the class a bad practice?
+
+It's often seen that way. In practice, the data structure and its normalized form have to be changed together anyway, so keeping them in one place makes changes easier and safer. This approach has been used in multiple large-scale projects for years without issues. Your mileage may vary.
 
 ## Additional documentation
 
