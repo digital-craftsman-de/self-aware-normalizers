@@ -1,0 +1,7 @@
+<?php
+
+namespace DigitalCraftsman\SelfAwareNormalizers\Test\ConstructFinder;
+
+final class ClassInNonPhpFile
+{
+}

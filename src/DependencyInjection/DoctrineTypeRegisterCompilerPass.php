@@ -15,7 +15,7 @@ use DigitalCraftsman\SelfAwareNormalizers\Serializer\FloatNormalizable;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizable;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizable;
 use Doctrine\DBAL\Types\Type;
-use League\ConstructFinder\ConstructFinder;
+use Symfony\Component\Config\Resource\DirectoryResource;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
@@ -28,6 +28,7 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
 {
     private const string TYPE_DEFINITION_PARAMETER = 'doctrine.dbal.connection_factory.types';
     private const string TYPE_NAME_METHOD_NAME = 'getTypeName';
+    private const string PHP_FILE_PATTERN = '/\.php$/';
 
     #[\Override]
     public function process(ContainerBuilder $container): void
@@ -43,6 +44,9 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
         $interfaceDirectories = $container->getParameter(Configuration::IMPLEMENTATION_DIRECTORIES_CONFIGURATION_PARAMETER);
 
         foreach ($interfaceDirectories as $interfaceDirectory) {
+            // Rebuild the container when files in the directory are added, changed or removed.
+            $container->addResource(new DirectoryResource($interfaceDirectory, self::PHP_FILE_PATTERN));
+
             $classes = $this->findClassesImplementingInterfacesInDirectory($interfaceDirectory);
 
             foreach ($classes as $implementation) {
@@ -69,6 +73,9 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
         $doctrineTypeDirectories = $container->getParameter(Configuration::DOCTRINE_TYPE_DIRECTORIES_CONFIGURATION_PARAMETER);
 
         foreach ($doctrineTypeDirectories as $doctrineTypeDirectory) {
+            // Rebuild the container when files in the directory are added, changed or removed.
+            $container->addResource(new DirectoryResource($doctrineTypeDirectory, self::PHP_FILE_PATTERN));
+
             $classes = $this->findTypesInDirectory($doctrineTypeDirectory);
 
             foreach ($classes as $type) {
@@ -91,9 +98,7 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
      */
     private function findClassesImplementingInterfacesInDirectory(string $pathToDoctrineTypeDirectory): iterable
     {
-        $constructFinder = ConstructFinder::locatedIn($pathToDoctrineTypeDirectory);
-
-        $classNames = $constructFinder->findClassNames();
+        $classNames = ConstructFinder::findClassNames($pathToDoctrineTypeDirectory);
         foreach ($classNames as $className) {
             $reflectionClass = new \ReflectionClass($className);
 
@@ -137,9 +142,9 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
             }
         }
 
-        $enumNames = $constructFinder->findEnums();
-        foreach ($enumNames as $enum) {
-            $reflectionEnum = new \ReflectionEnum($enum->name());
+        $enumNames = ConstructFinder::findEnumNames($pathToDoctrineTypeDirectory);
+        foreach ($enumNames as $enumName) {
+            $reflectionEnum = new \ReflectionEnum($enumName);
 
             /**
              * @psalm-suppress TypeDoesNotContainType
@@ -147,7 +152,7 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
             if ($reflectionEnum->implementsInterface(StringNormalizable::class)) {
                 yield [
                     'interface' => StringNormalizable::class,
-                    'className' => $enum->name(),
+                    'className' => $enumName,
                 ];
             }
 
@@ -157,7 +162,7 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
             if ($reflectionEnum->implementsInterface(IntNormalizable::class)) {
                 yield [
                     'interface' => IntNormalizable::class,
-                    'className' => $enum->name(),
+                    'className' => $enumName,
                 ];
             }
         }
@@ -168,7 +173,7 @@ final readonly class DoctrineTypeRegisterCompilerPass implements CompilerPassInt
      */
     private function findTypesInDirectory(string $pathToDoctrineTypeDirectory): iterable
     {
-        $classNames = ConstructFinder::locatedIn($pathToDoctrineTypeDirectory)->findClassNames();
+        $classNames = ConstructFinder::findClassNames($pathToDoctrineTypeDirectory);
 
         foreach ($classNames as $className) {
             $reflection = new \ReflectionClass($className);

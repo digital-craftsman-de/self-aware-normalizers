@@ -1,5 +1,11 @@
 # Upgrade guide
 
+## From 1.3.* to 1.4.0
+
+### Dropped support for PHP 8.4
+
+Update to at least PHP 8.5.
+
 ## From 1.2.* to 1.3.0
 
 ### Switch to automatic doctrine types

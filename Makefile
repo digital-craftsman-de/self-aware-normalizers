@@ -45,15 +45,16 @@ down: .down
 .PHONY: .install
 install: install-8.5
 
-## install-8.4			Install PHP dependencies with PHP 8.4.
-.PHONY: install-8.4
-install-8.4:
-	docker compose run --rm php-8.4 composer install
-
 ## install-8.5			Install PHP dependencies with PHP 8.5.
 .PHONY: install-8.5
 install-8.5:
 	docker compose run --rm php-8.5 composer install
+
+## install-8.6			Install PHP dependencies with PHP 8.6.
+.PHONY: install-8.6
+install-8.6:
+	# TODO: Remove --ignore-platform-req once vimeo/psalm officially supports PHP 8.6.
+	docker compose run --rm php-8.6 composer install --ignore-platform-req=php+
 
 ## php-cli			Enter a shell for the default PHP version (8.5).
 .PHONY: php-cli
@@ -64,10 +65,10 @@ php-cli: php-8.5-cli
 php-8.5-cli:
 	docker compose run --rm php-8.5 sh
 
-## php-8.4-cli			Enter a shell for PHP 8.4.
-.PHONY: php-8.4-cli
-php-8.4-cli:
-	docker compose run --rm php-8.4 sh
+## php-8.6-cli			Enter a shell for PHP 8.6.
+.PHONY: php-8.6-cli
+php-8.6-cli:
+	docker compose run --rm php-8.6 sh
 
 ##
 ## Tests and code validation
@@ -80,31 +81,31 @@ verify: php-code-validation php-tests php-mutation-testing
 
 ## php-tests			Run the tests for all relevant PHP versions.
 .PHONY: php-tests
-php-tests: php-8.4-tests php-8.5-tests
+php-tests: php-8.5-tests php-8.6-tests
 
 ## php-tests-coverage			Run the tests for all relevant PHP versions including coverage report as HTML.
 .PHONY: php-tests-coverage
 php-tests-coverage: php-8.5-tests-html-coverage
-
-## php-8.4-tests			Run tests with PHP 8.4.
-.PHONY: php-8.4-tests
-php-8.4-tests:
-	docker compose run --rm php-8.4 ./vendor/bin/phpunit
 
 ## php-8.5-tests			Run tests with PHP 8.5.
 .PHONY: php-8.5-tests
 php-8.5-tests:
 	docker compose run --rm php-8.5 ./vendor/bin/phpunit
 
-## php-8.4-tests-html-coverage	Run the tests with PHP 8.4 including coverage report as HTML.
-.PHONY: php-8.4-tests-html-coverage
-php-8.4-tests-html-coverage:
-	docker compose run --rm php-8.4 ./vendor/bin/phpunit --coverage-html ./coverage
+## php-8.6-tests			Run tests with PHP 8.6.
+.PHONY: php-8.6-tests
+php-8.6-tests:
+	docker compose run --rm php-8.6 ./vendor/bin/phpunit
 
 ## php-8.5-tests-html-coverage	Run the tests with PHP 8.5 including coverage report as HTML.
 .PHONY: php-8.5-tests-html-coverage
 php-8.5-tests-html-coverage:
 	docker compose run --rm php-8.5 ./vendor/bin/phpunit --coverage-html ./coverage
+
+## php-8.6-tests-html-coverage	Run the tests with PHP 8.6 including coverage report as HTML.
+.PHONY: php-8.6-tests-html-coverage
+php-8.6-tests-html-coverage:
+	docker compose run --rm php-8.6 ./vendor/bin/phpunit --coverage-html ./coverage
 
 ## php-code-validation		Run code fixers and linters with default PHP version (8.5).
 .PHONY: php-code-validation
@@ -122,15 +123,15 @@ php-mutation-testing:
 ## --
 ##
 
-## php-8.4-tests-ci		Run the tests for PHP 8.4 for CI.
-.PHONY: php-8.4-tests-ci
-php-8.4-tests-ci:
-	docker compose run --rm php-8.4 ./vendor/bin/phpunit --coverage-clover ./coverage.xml
-
 ## php-8.5-tests-ci		Run the tests for PHP 8.5 for CI.
 .PHONY: php-8.5-tests-ci
 php-8.5-tests-ci:
-	docker compose run --rm php-8.5 ./vendor/bin/phpunit
+	docker compose run --rm php-8.5 ./vendor/bin/phpunit --coverage-clover ./coverage.xml
+
+## php-8.6-tests-ci		Run the tests for PHP 8.6 for CI.
+.PHONY: php-8.6-tests-ci
+php-8.6-tests-ci:
+	docker compose run --rm php-8.6 ./vendor/bin/phpunit
 
 ## php-mutation-testing-ci	Run mutation testing for CI.
 .PHONY: php-mutation-testing-ci
