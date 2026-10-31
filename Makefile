@@ -53,7 +53,8 @@ install-8.5:
 ## install-8.6			Install PHP dependencies with PHP 8.6.
 .PHONY: install-8.6
 install-8.6:
-	docker compose run --rm php-8.6 composer install
+	# TODO: Remove --ignore-platform-req once vimeo/psalm officially supports PHP 8.6.
+	docker compose run --rm php-8.6 composer install --ignore-platform-req=php+
 
 ## php-cli			Enter a shell for the default PHP version (8.5).
 .PHONY: php-cli
