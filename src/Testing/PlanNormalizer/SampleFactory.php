@@ -111,7 +111,7 @@ final class SampleFactory
                             $this->nullPattern = $nullPattern;
                             try {
                                 /** @var T */
-                                return $this->createObject($class, $areNullableValuesNull, 0, '');
+                                return $this->createObject($class, $areNullableValuesNull, 0, '', null);
                             } catch (\Throwable $exception) {
                                 $lastException ??= $exception;
                             }
@@ -128,13 +128,16 @@ final class SampleFactory
     }
 
     /**
-     * @param class-string $class
+     * @param class-string      $class
+     * @param string            $name             Name of the parameter the object is built for (empty for the class under test)
+     * @param class-string|null $classOfParameter Class whose constructor the parameter belongs to (null for the class under test)
      */
     private function createObject(
         string $class,
         bool $areNullableValuesNull,
         int $depth,
         string $name,
+        ?string $classOfParameter,
     ): object {
         if ($depth > self::MAXIMUM_DEPTH) {
             throw new \RuntimeException(sprintf('Maximum depth reached for %s', $class));
@@ -146,7 +149,7 @@ final class SampleFactory
             return ($this->samplesOfClasses[$class])();
         }
 
-        $sample = $this->sample($class, $name, $areNullableValuesNull, $depth);
+        $sample = $this->sample($class, $name, $classOfParameter, $areNullableValuesNull, $depth);
         if ($sample !== null) {
             return $sample;
         }
@@ -168,7 +171,7 @@ final class SampleFactory
                 return $class::denormalize($this->string($name));
             }
 
-            return $this->createImplementation($reflectionClass->name, $areNullableValuesNull, $depth, $name);
+            return $this->createImplementation($reflectionClass->name, $areNullableValuesNull, $depth, $name, $classOfParameter);
         }
 
         $arguments = [];
@@ -183,7 +186,7 @@ final class SampleFactory
             }
             $type = $this->typesOfParameters[$key];
             $arguments[] = $type !== null
-                ? $this->valueOfType($type, $areNullableValuesNull, $depth + 1, $parameter->name)
+                ? $this->valueOfType($type, $areNullableValuesNull, $depth + 1, $parameter->name, $reflectionClass->name)
                 : null;
         }
 
@@ -191,13 +194,15 @@ final class SampleFactory
     }
 
     /**
-     * @param class-string $class
+     * @param class-string      $class
+     * @param class-string|null $classOfParameter
      */
     private function createImplementation(
         string $class,
         bool $areNullableValuesNull,
         int $depth,
         string $name,
+        ?string $classOfParameter,
     ): object {
         $lastException = null;
         foreach ($this->classesOfSource as $candidate) {
@@ -208,7 +213,7 @@ final class SampleFactory
             }
 
             try {
-                return $this->createObject($candidate, $areNullableValuesNull, $depth, $name);
+                return $this->createObject($candidate, $areNullableValuesNull, $depth, $name, $classOfParameter);
             } catch (\Throwable $exception) {
                 $lastException ??= $exception;
             }
@@ -218,11 +223,13 @@ final class SampleFactory
     }
 
     /**
-     * @param class-string $class
+     * @param class-string      $class
+     * @param class-string|null $classOfParameter
      */
     private function sample(
         string $class,
         string $name,
+        ?string $classOfParameter,
         bool $areNullableValuesNull,
         int $depth,
     ): ?object {
@@ -234,7 +241,8 @@ final class SampleFactory
                 $this->int,
                 $this->bool,
                 $this->numberOfElements,
-                fn (string $otherClass, string $otherName): object => $this->createObject($otherClass, $areNullableValuesNull, $depth + 1, $otherName),
+                $classOfParameter,
+                fn (string $otherClass, string $otherName, ?string $otherClassOfParameter): object => $this->createObject($otherClass, $areNullableValuesNull, $depth + 1, $otherName, $otherClassOfParameter),
             );
             foreach ($this->sampleProviders as $sampleProvider) {
                 $sample = $sampleProvider->sample($class, $name, $context);
@@ -321,11 +329,15 @@ final class SampleFactory
         return (string) preg_replace(sprintf('/\b%s\b/', $templateMatch[1]), '\\'.ltrim((string) $templateType, '\\'), $type);
     }
 
+    /**
+     * @param class-string $classOfParameter
+     */
     private function valueOfType(
         Type $type,
         bool $areNullableValuesNull,
         int $depth,
         string $name,
+        string $classOfParameter,
     ): mixed {
         if ($type->isNullable()) {
             ++$this->nullableValueCount;
@@ -345,7 +357,7 @@ final class SampleFactory
             $isListOfIntKeys = $type->getCollectionKeyType()->isIdentifiedBy(TypeIdentifier::INT);
             $elements = [];
             for ($i = 0; $i < $this->numberOfElements; ++$i) {
-                $element = $this->valueOfType($type->getCollectionValueType(), false, $depth + 1, $name);
+                $element = $this->valueOfType($type->getCollectionValueType(), false, $depth + 1, $name, $classOfParameter);
                 if ($isListOfIntKeys) {
                     $elements[] = $element;
                 } else {
@@ -360,7 +372,7 @@ final class SampleFactory
         if ($type instanceof CompositeTypeInterface) {
             foreach ($type->getTypes() as $memberType) {
                 if (!$memberType->isIdentifiedBy(TypeIdentifier::NULL)) {
-                    return $this->valueOfType($memberType, $areNullableValuesNull, $depth, $name);
+                    return $this->valueOfType($memberType, $areNullableValuesNull, $depth, $name, $classOfParameter);
                 }
             }
         }
@@ -377,7 +389,7 @@ final class SampleFactory
                 return 'mixed value';
             }
 
-            return $this->createObject($type->getClassName(), $areNullableValuesNull, $depth, $name);
+            return $this->createObject($type->getClassName(), $areNullableValuesNull, $depth, $name, $classOfParameter);
         }
 
         if ($type instanceof BuiltinType) {

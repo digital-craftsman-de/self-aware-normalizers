@@ -420,6 +420,43 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Read
         }
     }
 
+    /**
+     * Discriminated read model: the constructor requires one case of the enum, which is neither the first nor the last one, so the
+     * SampleFactory needs a SampleProvider that picks it by the class of the parameter.
+     */
+    final readonly class ImageElement
+    {
+        public function __construct(
+            public string $url,
+            public ElementType $type,
+        ) {
+            if ($type !== ElementType::IMAGE) {
+                throw new \InvalidArgumentException('An image element must be of type IMAGE.');
+            }
+        }
+    }
+
+    final readonly class Page
+    {
+        /**
+         * @param list<ImageElement> $elements
+         */
+        public function __construct(
+            public array $elements,
+            public ?ImageElement $cover,
+        ) {
+        }
+    }
+
+    enum ElementType: string implements StringNormalizable
+    {
+        use StringNormalizableEnumTrait;
+
+        case TEXT = 'TEXT';
+        case IMAGE = 'IMAGE';
+        case VIDEO = 'VIDEO';
+    }
+
     // -- Not supported
 
     final readonly class ObjectShape
@@ -653,5 +690,36 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Read
      */
     interface Described
     {
+    }
+}
+
+namespace DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Sample {
+    use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\ImageElement;
+
+    /**
+     * Not in the scope of the PlanNormalizer, only built by the SampleFactory (SampleFactoryTest): the implementation of the interface is
+     * built for the parameter.
+     */
+    interface Element
+    {
+    }
+
+    final readonly class ElementImplementation implements Element
+    {
+        public function __construct(
+            public ImageElement $image,
+        ) {
+        }
+    }
+
+    final readonly class Gallery
+    {
+        /**
+         * @param list<Element> $elements
+         */
+        public function __construct(
+            public array $elements,
+        ) {
+        }
     }
 }

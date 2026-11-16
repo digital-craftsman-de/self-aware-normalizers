@@ -18,7 +18,8 @@ interface SampleProvider
      *
      * @param class-string $class
      * @param string       $parameterName Name of the parameter the sample is built for (empty for the class under test), e.g. to build
-     *                                    a deadline before other dates
+     *                                    a deadline before other dates. The class the parameter belongs to is
+     *                                    $context->classOfParameter, e.g. to pick the enum case its constructor requires.
      */
     public function sample(
         string $class,

@@ -7,7 +7,9 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Testing\PlanNormalizer;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\Exception\FallbackIsRequired;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\PlanFactory;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\PlanNormalizer;
+use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\ElementType;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\Generic;
+use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\ImageElement;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\Leaf;
 use PHPUnit\Framework\Attributes\CoversClass;
 
@@ -36,7 +38,7 @@ final class PlanNormalizerEquivalenceTest extends PlanNormalizerEquivalenceTestC
     #[\Override]
     protected static function minimumNumberOfPlannedClasses(): int
     {
-        return 16;
+        return 18;
     }
 
     /**
@@ -51,7 +53,7 @@ final class PlanNormalizerEquivalenceTest extends PlanNormalizerEquivalenceTestC
     }
 
     /**
-     * There is no implementation of \Countable in the source.
+     * There is no implementation of \Countable in the source, and the constructor of ImageElement requires the case IMAGE of its type.
      */
     #[\Override]
     protected static function sampleProviders(): array
@@ -64,9 +66,11 @@ final class PlanNormalizerEquivalenceTest extends PlanNormalizerEquivalenceTestC
                     string $parameterName,
                     SampleContext $context,
                 ): ?object {
-                    return $class === \Countable::class
-                        ? new \ArrayObject(array_fill(0, $context->numberOfElements, $context->sampleOf(Leaf::class)))
-                        : null;
+                    return match (true) {
+                        $class === \Countable::class => new \ArrayObject(array_fill(0, $context->numberOfElements, $context->sampleOf(Leaf::class))),
+                        $class === ElementType::class && $context->classOfParameter === ImageElement::class => ElementType::IMAGE,
+                        default => null,
+                    };
                 }
 
                 #[\Override]

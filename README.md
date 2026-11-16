@@ -263,6 +263,7 @@ services:
 
   # The fallback of the plan normalizer. Without class metadata factory, name converter, class discriminator resolver and object
   # class resolver. Set them to null explicitly, an autowired service gets them injected otherwise.
+  # Autoconfiguration may add a second tag without priority, which is ignored: like for the serializer, the first tag counts.
   serializer.normalizer.property_normalizer:
     class: Symfony\Component\Serializer\Normalizer\PropertyNormalizer
     tags: [ { name: 'serializer.normalizer', priority: -50 } ]
@@ -393,6 +394,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Serializer;
 
+use App\ReadModel\ContentElementImage;
+use App\ValueObject\ContentElementType;
 use App\ValueObject\DateRange;
 use App\ValueObject\Id;
 use DigitalCraftsman\DateTimePrecision\Duration;
@@ -444,6 +447,9 @@ final readonly class AppSampleProvider implements SampleProvider
             is_subclass_of($class, Id::class) => $class::generateRandom(),
             // Increasing with every sample, so the start of a range is before its end
             $class === Moment::class => Moment::fromString('2027-01-01 10:00:00')->add(Duration::fromHours($context->sequence)),
+            // The class whose constructor the parameter belongs to, e.g. for a discriminated read model that requires its type
+            $class === ContentElementType::class
+                && $context->classOfParameter === ContentElementImage::class => ContentElementType::IMAGE,
             default => null,
         };
     }
@@ -456,6 +462,8 @@ final readonly class AppSampleProvider implements SampleProvider
     }
 }
 ```
+
+A `SampleProvider` is asked before the built-in samples for every object the sample factory builds. Besides the class and the name of the parameter, its `SampleContext` contains the class whose constructor the parameter belongs to (`classOfParameter`, also for the elements of a collection and for the implementation built for an interface or abstract class), the values the factory currently tries (`sequence`, `int`, `bool`, `numberOfElements`) and `sampleOf()` to build samples of other classes. Enums are taken from the providers as well; without one, the factory tries the first and the last case.
 
 `SerializerComparison` builds the serializers the test case compares (the configured one, one without the plan normalizer, and one whose fallback throws) and can be used for further tests of your own.
 

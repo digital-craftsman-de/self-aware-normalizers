@@ -76,9 +76,9 @@ final class ListUnplannedClassesCommandTest extends KernelTestCase
         $result = json_decode($commandTester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($result);
 
-        self::assertSame(39, $result['numberOfClassesInScope']);
+        self::assertSame(41, $result['numberOfClassesInScope']);
         self::assertSame(2, $result['numberOfNotRelevantClasses']);
-        self::assertSame(16, $result['numberOfPlannedClasses']);
+        self::assertSame(18, $result['numberOfPlannedClasses']);
         self::assertSame(
             [
                 [
@@ -198,7 +198,7 @@ final class ListUnplannedClassesCommandTest extends KernelTestCase
         self::assertSame(Command::SUCCESS, $exitCode);
 
         $display = $commandTester->getDisplay();
-        self::assertStringContainsString('39 classes in scope (incl. 2 not relevant), 16 planned.', $display);
+        self::assertStringContainsString('41 classes in scope (incl. 2 not relevant), 18 planned.', $display);
         self::assertStringContainsString(self::lines(
             'Skipped, as they can not be loaded',
             '----------------------------------',
@@ -554,7 +554,7 @@ final class ListUnplannedClassesCommandTest extends KernelTestCase
         $result = json_decode($commandTester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($result);
         // The source directories of the configuration are the fixtures
-        self::assertSame(16, $result['numberOfPlannedClasses']);
+        self::assertSame(18, $result['numberOfPlannedClasses']);
 
         foreach ($result['notRelevantClasses'] as $notRelevantClass) {
             self::assertFalse($planNormalizer->supportsDenormalization([], $notRelevantClass['class']), $notRelevantClass['class']);
