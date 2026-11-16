@@ -25,6 +25,7 @@ use Symfony\Component\Serializer\NameConverter\CamelCaseToSnakeCaseNameConverter
 use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 use Symfony\Component\Serializer\Normalizer\PropertyNormalizer;
+use Symfony\Component\Serializer\Serializer;
 
 require_once dirname(__DIR__).'/Test/PlanNormalizer/Fixture/ReadModel/fixtures.php';
 
@@ -246,6 +247,20 @@ final class PlanNormalizerCompilerPassTest extends TestCase
             'Its priority (-50) must be lower than the one of the plan normalizer (-50, self_aware_normalizers.plan_normalizer.priority).',
         ];
 
+        // Like the SerializerPass, the first tag decides
+        yield 'tagged without priority before the tag with priority' => [
+            static function (ContainerBuilder $container): void {
+                $container->getDefinition(TestKernel::FALLBACK_NORMALIZER_ID)
+                    ->clearTag('serializer.normalizer')
+                    ->addTag('serializer.normalizer')
+                    ->addTag('serializer.normalizer', [
+                        'priority' => -50,
+                    ]);
+            },
+            [],
+            'Its priority (0) must be lower than the one of the plan normalizer (-45, self_aware_normalizers.plan_normalizer.priority).',
+        ];
+
         yield 'tagged without priority' => [
             static function (ContainerBuilder $container): void {
                 $container->getDefinition(TestKernel::FALLBACK_NORMALIZER_ID)
@@ -274,6 +289,35 @@ final class PlanNormalizerCompilerPassTest extends TestCase
 
         // -- Act
         $this->bootedKernel(sprintf('invalid_%s', md5($expectedMessagePart)), $configure, $planNormalizerConfig);
+    }
+
+    /**
+     * Autoconfiguration (e.g. _defaults: autoconfigure: true in the services.yaml of an app) adds a second tag without priority to the
+     * fallback, which the serializer ignores, as the first tag decides.
+     */
+    #[Test]
+    public function fallback_with_an_additional_tag_through_autoconfiguration_is_accepted(): void
+    {
+        // -- Arrange
+        $kernel = $this->bootedKernel('autoconfigured', static function (ContainerBuilder $container): void {
+            $container->getDefinition(TestKernel::FALLBACK_NORMALIZER_ID)
+                ->setAutoconfigured(true);
+        });
+
+        // -- Act
+        $comparison = SerializerComparison::fromSerializer($kernel->getContainer()->get('test.service_container')->get('serializer'));
+
+        // -- Assert
+        $fallbackTags = array_values(array_filter(
+            array_map(
+                static fn (object $normalizer): string => SerializerComparison::unwrap($normalizer)::class,
+                new \ReflectionProperty(Serializer::class, 'normalizers')->getValue($comparison->plan),
+            ),
+            static fn (string $class): bool => in_array($class, [PlanNormalizer::class, PropertyNormalizer::class], true),
+        ));
+        // The plan normalizer comes first, the fallback follows
+        self::assertSame([PlanNormalizer::class, PropertyNormalizer::class], array_slice($fallbackTags, 0, 2));
+        self::assertTrue($comparison->planNormalizer->supportsDenormalization([], Leaf::class));
     }
 
     /**

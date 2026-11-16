@@ -120,14 +120,14 @@ final readonly class PlanNormalizerCompilerPass implements CompilerPassInterface
     }
 
     /**
-     * The priority of the last normalizer tag (0 without priority, like the SerializerPass).
+     * The priority the serializer orders the normalizer by: like PriorityTaggedServiceTrait (used by the SerializerPass) for a tag
+     * without index, the priority of the first tag counts, 0 without priority. Further tags (e.g. added through autoconfiguration
+     * without priority) are ignored.
      */
     private static function priority(Definition $definition): int
     {
-        $tags = $definition->getTag(self::NORMALIZER_TAG);
-
         /** @var array{priority?: int} $attributes */
-        $attributes = end($tags);
+        $attributes = $definition->getTag(self::NORMALIZER_TAG)[0] ?? [];
 
         return $attributes['priority'] ?? 0;
     }
