@@ -30,7 +30,8 @@ use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
  *
  * Limits: It's a pattern check on the source (`Serializer\Attribute`). Grouped imports and an alias of the attribute namespace are found,
  * an alias of the serializer namespace itself (`use Symfony\Component\Serializer as S;` with `#[S\Attribute\Groups]`) is not. Test
- * directories of vendor packages, the serializer itself and dev-only packages (never deployed) aren't scanned. The allowlisted vendor files
+ * directories of vendor packages, the serializer itself, dev-only packages (never deployed) and the test cases of this bundle (src/Testing,
+ * which use the attributes on purpose) aren't scanned. The allowlisted vendor files
  * (allowedVendorFiles()) were checked and never reach the PropertyNormalizer; an entry that isn't found anymore fails the test, so the
  * list doesn't go stale.
  */
@@ -60,6 +61,39 @@ abstract class SerializerMappingIsNotUsedTestCase extends KernelTestCase
             // #[Ignore] on the state of lazy decorators, used for proxies of services, which are never serialized
             'vendor/symfony/var-exporter/Internal/LazyDecoratorTrait.php',
         ];
+    }
+
+    /**
+     * Directories of the non-dev packages installed in the vendor directory of the project (without symfony/serializer itself).
+     *
+     * @return list<string>
+     */
+    protected static function vendorPackageDirectories(): array
+    {
+        $vendorDirectory = static::projectDirectory().'/vendor/';
+
+        $packageDirectories = [];
+        foreach (InstalledVersions::getAllRawData() as $installed) {
+            /** @var array<string, array{dev_requirement: bool, install_path?: string}> $packages */
+            $packages = $installed['versions'];
+            foreach ($packages as $packageName => $package) {
+                if ($package['dev_requirement']
+                    || !isset($package['install_path'])
+                    || $packageName === 'symfony/serializer'
+                ) {
+                    continue;
+                }
+
+                $packageDirectory = realpath($package['install_path']);
+                if ($packageDirectory !== false
+                    && str_starts_with($packageDirectory, $vendorDirectory)
+                ) {
+                    $packageDirectories[$packageDirectory] = $packageDirectory;
+                }
+            }
+        }
+
+        return array_values($packageDirectories);
     }
 
     protected static function projectDirectory(): string
@@ -103,38 +137,23 @@ abstract class SerializerMappingIsNotUsedTestCase extends KernelTestCase
     {
         // -- Arrange
         $projectDirectory = static::projectDirectory();
-        $vendorDirectory = $projectDirectory.'/vendor/';
-
-        $packageDirectories = [];
-        foreach (InstalledVersions::getAllRawData() as $installed) {
-            /** @var array<string, array{dev_requirement: bool, install_path?: string}> $packages */
-            $packages = $installed['versions'];
-            foreach ($packages as $packageName => $package) {
-                if ($package['dev_requirement']
-                    || !isset($package['install_path'])
-                    || $packageName === 'symfony/serializer'
-                ) {
-                    continue;
-                }
-
-                $packageDirectory = realpath($package['install_path']);
-                if ($packageDirectory !== false
-                    && str_starts_with($packageDirectory, $vendorDirectory)
-                ) {
-                    $packageDirectories[$packageDirectory] = $packageDirectory;
-                }
-            }
-        }
+        $packageDirectories = static::vendorPackageDirectories();
+        // The test cases of this bundle (like this one) use the attributes on purpose and are never serialized
+        $testingDirectory = (string) realpath(__DIR__);
 
         // -- Act
         $filesUsingSerializerAttributes = [];
         if ($packageDirectories !== []) {
             $finder = new Finder()
                 ->files()
-                ->in(array_values($packageDirectories))
+                ->in($packageDirectories)
                 ->name('*.php')
                 ->notPath('#(^|/)[Tt]ests?/#');
             foreach ($finder as $file) {
+                if (str_starts_with((string) $file->getRealPath(), $testingDirectory.DIRECTORY_SEPARATOR)) {
+                    continue;
+                }
+
                 $contents = $file->getContents();
                 if (str_contains($contents, 'Serializer\\Attribute')
                     && preg_match(self::SERIALIZER_ATTRIBUTE_PATTERN, $contents) === 1
