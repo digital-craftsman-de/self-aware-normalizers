@@ -3,6 +3,10 @@
   "source": {
     "directories": [
       "src"
+    ],
+    // Test cases for applications, test tooling like the tests themselves
+    "excludes": [
+      "Testing"
     ]
   },
   "mutators": {
