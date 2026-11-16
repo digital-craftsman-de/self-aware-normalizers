@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer;
 
+use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Other\Settings;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\AdditionalParameter;
+use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\ArrayTypeMismatch;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\Base;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\Box;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\Boxed;
@@ -19,8 +21,10 @@ use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\Inherited;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\IntersectionParameter;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\IterableParameter;
+use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\KeyedCollections;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\Kind;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\Leaf;
+use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\Located;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\Mutable;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\NameValue;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\NestedObjectCollections;
@@ -38,10 +42,12 @@ use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\TypeMismatch;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\UnionParameter;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\ValueObjects;
+use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\WithSettings;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\WithStrictName;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\Count;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\Flag;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\PlainStatus;
+use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\Point;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\StrictName;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\Weight;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\NullPropertyTypeExtractor;
@@ -182,6 +188,22 @@ final class PlanNormalizerTest extends KernelTestCase
             new ConstructorTypeError(7),
             new Generic(new Leaf('Example')),
             new Boxed(new Box(new Leaf('Example'))),
+            new Located(new Point(1, 2), new Point(3, 4), [new Point(5, 6)], [new StrictName('Example')]),
+            new Located(new Point(1, 2), null, [], []),
+            new WithSettings(new Settings(), new Tree('Krone', null, new Leaf('Example'), [], [], [])),
+            new WithSettings(null, null),
+            new KeyedCollections(
+                [
+                    [
+                        'first' => new Count(1),
+                    ],
+                ],
+                [
+                    'first' => $leaf,
+                    7 => $leaf,
+                ],
+            ),
+            new \ReflectionClass(ArrayTypeMismatch::class)->newInstance(['Example']),
         ];
         $samples[] = new NestedObjectCollections(...$nestedObjectCollectionsArguments);
         // Every nested collection on its own as well: the quirky key checks of one parameter would make the whole object fall back and
@@ -297,7 +319,7 @@ final class PlanNormalizerTest extends KernelTestCase
         // -- Arrange
         $comparison = $this->comparison();
         $variants = [];
-        foreach (['unsupported', 'not normalizable'] as $invalidName) {
+        foreach (['unsupported', 'not normalizable', 'invalid argument', 'missing arguments', 'extra attributes'] as $invalidName) {
             $variants[] = [
                 'name' => $invalidName,
                 'otherName' => 'Example',
@@ -698,6 +720,11 @@ final class PlanNormalizerTest extends KernelTestCase
             }
             // A class that isn't cached can't be planned with the throwing type extractor, so it's left to the PropertyNormalizer
             $isUncachedClassSupported = $readingPlanNormalizers[0]->supportsDenormalization([], Optional::class);
+            // Only possible with the plans from the cache
+            $areCachedClassesSupported = array_map(
+                static fn (object $sample): bool => $readingPlanNormalizers[0]->supportsDenormalization([], $sample::class),
+                $samples,
+            );
         } finally {
             new Filesystem()->remove($cacheDirectory);
         }
@@ -707,6 +734,97 @@ final class PlanNormalizerTest extends KernelTestCase
         self::assertCount(1, $readingPlanNormalizers);
         self::assertSame($referenceOutcomes, $outcomes);
         self::assertFalse($isUncachedClassSupported);
+        self::assertSame([true, true, true], $areCachedClassesSupported);
+    }
+
+    #[Test]
+    public function valid_data_with_missing_optional_values_and_ints_for_floats_is_handled_by_the_plan_itself(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $cases = [
+            // A missing nullable value (null) in front of another value
+            [Optional::class, ['anything' => 'Example'], null],
+            // A missing value with default in front of another value with default
+            [Scalars::class, [
+                'name' => 'Example',
+                'count' => 7,
+                'amount' => 2.5,
+                'isActive' => true,
+                'anything' => null,
+                'comment' => null,
+                'map' => [],
+                'mixedList' => [],
+                'status' => 'ACTIVE',
+                'optionalStatus' => null,
+                'createdAt' => '2026-11-15T10:30:00+00:00',
+                'withDefault' => 'Other',
+            ], null],
+            // JSON has no distinction between int and float
+            [Scalars::class, [
+                'name' => 'Example',
+                'count' => 7,
+                'amount' => 3,
+                'isActive' => true,
+                'anything' => null,
+                'comment' => null,
+                'map' => [],
+                'mixedList' => [],
+                'status' => 'ACTIVE',
+                'optionalStatus' => null,
+                'createdAt' => '2026-11-15T10:30:00+00:00',
+            ], JsonEncoder::FORMAT],
+        ];
+
+        // -- Act & Assert
+        foreach ($cases as [$class, $data, $format]) {
+            $referenceOutcome = SerializerComparison::outcome(static fn () => $comparison->reference->denormalize($data, $class, $format));
+            self::assertSame('result', $referenceOutcome[0]);
+            self::assertSame($referenceOutcome, SerializerComparison::outcome(static fn () => $comparison->planOnly->denormalize($data, $class, $format)));
+        }
+    }
+
+    #[Test]
+    public function null_values_and_empty_objects_follow_the_default_context_unless_the_context_overrules_it(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $cases = [
+            // Default context => context => expected result
+            [[], [], ['comment' => null, 'anything' => null]],
+            [[AbstractObjectNormalizer::SKIP_NULL_VALUES => true], [], []],
+            [[AbstractObjectNormalizer::SKIP_NULL_VALUES => true], [AbstractObjectNormalizer::SKIP_NULL_VALUES => false], ['comment' => null, 'anything' => null]],
+            [[AbstractObjectNormalizer::SKIP_NULL_VALUES => true, AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true], [], new \ArrayObject()],
+            [[AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => false], [AbstractObjectNormalizer::SKIP_NULL_VALUES => true, AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true], new \ArrayObject()],
+            [[AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true], [AbstractObjectNormalizer::SKIP_NULL_VALUES => true, AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => false], []],
+        ];
+
+        // -- Act & Assert
+        foreach ($cases as [$defaultContext, $context, $expectedResult]) {
+            $planNormalizer = new PlanNormalizer($comparison->planFactory, $comparison->planNormalizer, null, 'test', $defaultContext);
+            self::assertEquals($expectedResult, $planNormalizer->normalize(new Optional(null, null), null, $context), (string) json_encode([$defaultContext, $context]));
+        }
+
+        // Values after a skipped null value are kept
+        $planNormalizer = new PlanNormalizer($comparison->planFactory, $comparison->planNormalizer, null, 'test', []);
+        self::assertSame(['anything' => 'Example'], $planNormalizer->normalize(new Optional(null, 'Example'), null, [AbstractObjectNormalizer::SKIP_NULL_VALUES => true]));
+    }
+
+    #[Test]
+    public function unsupported_options_of_the_default_context_are_overruled_by_the_context(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $data = ['name' => 'Example'];
+        $planNormalizer = static fn (array $defaultContext): PlanNormalizer => new PlanNormalizer($comparison->planFactory, $comparison->planNormalizer, null, 'test', $defaultContext);
+
+        // -- Act & Assert
+        self::assertFalse($planNormalizer([AbstractNormalizer::REQUIRE_ALL_PROPERTIES => true])->supportsDenormalization($data, Leaf::class));
+        self::assertTrue($planNormalizer([AbstractNormalizer::REQUIRE_ALL_PROPERTIES => true])->supportsDenormalization($data, Leaf::class, null, [AbstractNormalizer::REQUIRE_ALL_PROPERTIES => false]));
+        self::assertFalse($planNormalizer([AbstractNormalizer::REQUIRE_ALL_PROPERTIES => false])->supportsDenormalization($data, Leaf::class, null, [AbstractNormalizer::REQUIRE_ALL_PROPERTIES => true]));
+        self::assertFalse($planNormalizer([AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => false])->supportsDenormalization($data, Leaf::class));
+        self::assertTrue($planNormalizer([AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => false])->supportsDenormalization($data, Leaf::class, null, [AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => true]));
+        self::assertFalse($planNormalizer([AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => true])->supportsDenormalization($data, Leaf::class, null, [AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => false]));
     }
 
     // -- Helpers

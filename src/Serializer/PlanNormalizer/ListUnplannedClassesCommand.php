@@ -211,13 +211,14 @@ final class ListUnplannedClassesCommand extends Command
             $notRelevantClasses = [];
         }
 
-        $notAcceptedFallingBackClasses = array_values(array_map(
+        // Only iterated and merged, so the keys don't matter
+        $notAcceptedFallingBackClasses = array_map(
             static fn (array $fallingBackClass): string => $fallingBackClass['class'],
             array_filter(
                 $fallingBackClasses,
                 static fn (array $fallingBackClass): bool => $fallingBackClass['acceptedBecause'] === null,
             ),
-        ));
+        );
         $staleAcceptedClasses = array_values(array_diff(
             array_keys($this->acceptedUnplannedClasses),
             array_column($fallingBackClasses, 'class'),
@@ -369,10 +370,10 @@ final class ListUnplannedClassesCommand extends Command
             $io->text('None.');
         }
         foreach (Diagnosis\PlanLimitationReason::cases() as $reason) {
-            $classesOfReason = array_values(array_filter(
+            $classesOfReason = array_filter(
                 $notRelevantClasses,
                 static fn (array $notRelevantClass): bool => $notRelevantClass['reason'] === $reason->value,
-            ));
+            );
             if ($classesOfReason !== []) {
                 $io->writeln(sprintf(' <comment>%s</comment> (%d)', OutputFormatter::escape($reason->description()), count($classesOfReason)));
                 foreach ($classesOfReason as $notRelevantClass) {
@@ -565,7 +566,8 @@ final class ListUnplannedClassesCommand extends Command
             }
         }
 
-        $classes = array_values(array_unique($classes));
+        // A class is only declared once, unique is a guard. Sorting renumbers the keys.
+        $classes = array_unique($classes);
         sort($classes);
 
         return $classes;

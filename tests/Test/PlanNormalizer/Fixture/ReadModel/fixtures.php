@@ -9,10 +9,14 @@ declare(strict_types=1);
  */
 
 namespace DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject {
+    use DigitalCraftsman\SelfAwareNormalizers\Serializer\ArrayNormalizable;
     use DigitalCraftsman\SelfAwareNormalizers\Serializer\BoolNormalizable;
     use DigitalCraftsman\SelfAwareNormalizers\Serializer\FloatNormalizable;
     use DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizable;
     use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizable;
+    use Symfony\Component\Serializer\Exception\ExtraAttributesException;
+    use Symfony\Component\Serializer\Exception\InvalidArgumentException;
+    use Symfony\Component\Serializer\Exception\MissingConstructorArgumentsException;
     use Symfony\Component\Serializer\Exception\NotNormalizableValueException;
     use Symfony\Component\Serializer\Exception\UnsupportedException;
 
@@ -95,6 +99,9 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Valu
             return match ($data) {
                 'unsupported' => throw new UnsupportedException('The name is not supported.'),
                 'not normalizable' => throw new NotNormalizableValueException('The name is not normalizable.'),
+                'invalid argument' => throw new InvalidArgumentException('The name is an invalid argument.'),
+                'missing arguments' => throw new MissingConstructorArgumentsException('The name misses arguments.'),
+                'extra attributes' => throw new ExtraAttributesException(['extra']),
                 default => new self($data),
             };
         }
@@ -103,6 +110,42 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Valu
         public function normalize(): string
         {
             return $this->value;
+        }
+    }
+
+    /**
+     * @psalm-type NormalizedPoint = array{
+     *   x: int,
+     *   y: int,
+     * }
+     */
+    final readonly class Point implements ArrayNormalizable
+    {
+        public function __construct(
+            public int $x,
+            public int $y,
+        ) {
+        }
+
+        /**
+         * @param NormalizedPoint $data
+         */
+        #[\Override]
+        public static function denormalize(array $data): self
+        {
+            return new self($data['x'], $data['y']);
+        }
+
+        /**
+         * @return NormalizedPoint
+         */
+        #[\Override]
+        public function normalize(): array
+        {
+            return [
+                'x' => $this->x,
+                'y' => $this->y,
+            ];
         }
     }
 
@@ -116,9 +159,11 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Valu
 namespace DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel {
     use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizable;
     use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizableEnumTrait;
+    use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Other\Settings;
     use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\Count;
     use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\Flag;
     use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\PlainStatus;
+    use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\Point;
     use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\StrictName;
     use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\Weight;
 
@@ -421,6 +466,73 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Read
     }
 
     /**
+     * Value objects normalized to an array, and lists of value objects normalized to arrays and strings.
+     */
+    final readonly class Located
+    {
+        /**
+         * @param list<Point>      $points
+         * @param list<StrictName> $names
+         */
+        public function __construct(
+            public Point $point,
+            public ?Point $optionalPoint,
+            public array $points,
+            public array $names,
+        ) {
+        }
+    }
+
+    /**
+     * A nullable class out of the scope, which an object normalizer would build from a scalar, unless it's denormalized as member of
+     * a union type (like the PropertyNormalizer does for a nullable type).
+     */
+    final readonly class WithSettings
+    {
+        /**
+         * The tree is a class that could be put on the fast path, after a class that never gets a plan (both are listed as delegated
+         * parameters by the list command).
+         */
+        public function __construct(
+            public ?Settings $settings,
+            public ?Tree $tree,
+        ) {
+        }
+    }
+
+    /**
+     * Collections whose inner key type differs from the outer one, and keys in another order than int|string.
+     */
+    final readonly class KeyedCollections
+    {
+        /**
+         * @param list<array<string, Count>> $countsByKey
+         * @param array<string|int, Leaf>    $leavesByAnyKey
+         */
+        public function __construct(
+            public array $countsByKey,
+            public array $leavesByAnyKey,
+        ) {
+        }
+    }
+
+    /**
+     * The native type array overrules the PHPDoc type, like for the PropertyNormalizer.
+     */
+    final readonly class ArrayTypeMismatch
+    {
+        /**
+         * @param string $values
+         *
+         * @psalm-suppress MismatchingDocblockParamType On purpose
+         */
+        public function __construct(
+            public array $values,
+        ) {
+        }
+    }
+
+    /**
      * Discriminated read model: the constructor requires one case of the enum, which is neither the first nor the last one, so the
      * SampleFactory needs a SampleProvider that picks it by the class of the parameter.
      */
@@ -712,6 +824,46 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Samp
         }
     }
 
+    /**
+     * Native type array with PHPDoc types that do or don't overrule it (PlanFactoryTest).
+     */
+    final readonly class ArrayWithIterableDoc
+    {
+        /**
+         * @param iterable<string> $values
+         */
+        public function __construct(
+            public array $values,
+        ) {
+        }
+    }
+
+    final readonly class ArrayWithCollectionClassDoc
+    {
+        /**
+         * @param \ArrayObject<int, string> $values
+         *
+         * @psalm-suppress MismatchingDocblockParamType On purpose
+         */
+        public function __construct(
+            public array $values,
+        ) {
+        }
+    }
+
+    final readonly class ArrayWithIntOrIterableDoc
+    {
+        /**
+         * @param int|iterable $values
+         *
+         * @psalm-suppress MismatchingDocblockParamType On purpose
+         */
+        public function __construct(
+            public array $values,
+        ) {
+        }
+    }
+
     final readonly class Gallery
     {
         /**
@@ -721,5 +873,15 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Samp
             public array $elements,
         ) {
         }
+    }
+}
+
+namespace DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Other {
+    /**
+     * Out of the scope of the PlanNormalizer, (de)normalized by the PropertyNormalizer.
+     */
+    final class Settings
+    {
+        public string $mode = 'auto';
     }
 }

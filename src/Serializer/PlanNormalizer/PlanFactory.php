@@ -346,7 +346,8 @@ final readonly class PlanFactory
     ): Type {
         // Without a type, the PropertyNormalizer would use AbstractNormalizer::denormalizeParameter() without type enforcement
         $type = $this->propertyTypeExtractor->getType($reflectionClass->name, $parameter->name) ?? throw new Exception\TypeCanNotBePlanned();
-        $parameterType = $parameter->getType() ?? throw new Exception\TypeCanNotBePlanned();
+        /** @var \ReflectionType $parameterType Checked by createParameterPlan() (PARAMETER_HAS_NO_TYPE) */
+        $parameterType = $parameter->getType();
 
         return $this->typeOverruledByParameterType($type, $parameterType, $reflectionClass, $parameter);
     }
@@ -360,9 +361,11 @@ final readonly class PlanFactory
         \ReflectionClass $reflectionClass,
         \ReflectionParameter $parameter,
     ): Type {
+        /** @var \ReflectionClass<object> $declaringClass A parameter of a constructor always has one */
+        $declaringClass = $parameter->getDeclaringClass();
         $resolvedParameterType = $this->reflectionTypeResolver->resolve(
             $parameterType,
-            $this->typeContextFactory->createFromClassName($reflectionClass->name, $parameter->getDeclaringClass()?->name),
+            $this->typeContextFactory->createFromClassName($reflectionClass->name, $declaringClass->name),
         );
 
         $isMismatch = $resolvedParameterType->isSatisfiedBy(

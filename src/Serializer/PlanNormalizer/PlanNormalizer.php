@@ -10,10 +10,6 @@ use DigitalCraftsman\SelfAwareNormalizers\Serializer\FloatNormalizable;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizable;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizable;
 use Psr\Cache\CacheItemPoolInterface;
-use Symfony\Component\Serializer\Exception\ExtraAttributesException;
-use Symfony\Component\Serializer\Exception\InvalidArgumentException;
-use Symfony\Component\Serializer\Exception\MissingConstructorArgumentsException;
-use Symfony\Component\Serializer\Exception\NotNormalizableValueException;
 use Symfony\Component\Serializer\Exception\UnsupportedException;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
@@ -114,7 +110,9 @@ final class PlanNormalizer implements NormalizerInterface, DenormalizerInterface
     private array $plans = [];
 
     /**
-     * @var array<string, true>
+     * Class => class, in the order the plans are started (a set, only the keys are used).
+     *
+     * @var array<string, string>
      */
     private array $plansInProgress = [];
 
@@ -124,7 +122,7 @@ final class PlanNormalizer implements NormalizerInterface, DenormalizerInterface
     private array $normalizationKinds = [];
 
     /**
-     * @var array<string, true> Classes that reference themselves (directly or through other classes)
+     * @var array<string, string> Classes that reference themselves (directly or through other classes), class => class (a set)
      */
     private array $recursiveClasses = [];
 
@@ -285,12 +283,7 @@ final class PlanNormalizer implements NormalizerInterface, DenormalizerInterface
                     $value,
                     $targetClass,
                     $format,
-                    $extra === true
-                    && !is_array($value)
-                    && !is_object($value)
-                        // Like AbstractObjectNormalizer::validateAndDenormalize() for a nullable (union) type
-                        ? ['_union_member' => true] + $context
-                        : $context,
+                    self::contextOfObject($value, $extra === true, $context),
                 ),
                 ParameterKind::VALUE_OBJECT_LIST => is_array($value)
                     /**
@@ -416,6 +409,26 @@ final class PlanNormalizer implements NormalizerInterface, DenormalizerInterface
     }
 
     /**
+     * Like AbstractObjectNormalizer::validateAndDenormalize() for an object of a nullable (union) type: a scalar is denormalized as union
+     * member, so an object normalizer throws instead of building an object from it.
+     *
+     * @param array<string, mixed> $context
+     *
+     * @return array<string, mixed>
+     */
+    private static function contextOfObject(
+        mixed $value,
+        bool $isNullable,
+        array $context,
+    ): array {
+        return $isNullable
+            && !is_array($value)
+            && !is_object($value)
+                ? ['_union_member' => true] + $context
+                : $context;
+    }
+
+    /**
      * Same as the self-aware normalizers, with the type of the value checked before, so that a TypeError is thrown by the
      * PropertyNormalizer path with its message.
      *
@@ -430,8 +443,10 @@ final class PlanNormalizer implements NormalizerInterface, DenormalizerInterface
     ): object {
         try {
             return self::denormalizeValueObjectOfKind($value, $kind, $class);
-        } catch (NotNormalizableValueException | InvalidArgumentException | UnsupportedException | MissingConstructorArgumentsException | ExtraAttributesException) {
-            // Exceptions of the serializer are handled differently for nullable (union) types by the PropertyNormalizer
+        } catch (UnsupportedException) {
+            // AbstractObjectNormalizer::validateAndDenormalize() swallows it for a nullable (union) type and throws its own exception
+            // instead. Every other exception of the serializer (and any other exception) is thrown by the PropertyNormalizer as is,
+            // with or without a nullable type, so it's left to bubble up the same way.
             throw new Exception\FallbackIsRequired();
         }
     }
@@ -525,9 +540,7 @@ final class PlanNormalizer implements NormalizerInterface, DenormalizerInterface
         ?string $format,
         array $context,
     ): mixed {
-        if (is_object($value)
-            && $value instanceof $type
-        ) {
+        if ($value instanceof $type) {
             return $value;
         }
 
@@ -846,16 +859,21 @@ final class PlanNormalizer implements NormalizerInterface, DenormalizerInterface
             return $this->plans[$class] = false;
         }
 
+        /**
+         * @var class-string $class Checked by isInScope()
+         */
         $planCache = $this->planCache;
-        $cacheItem = $planCache?->getItem(sprintf(
+        if ($planCache === null) {
+            return $this->plans[$class] = $this->createPlan($class);
+        }
+
+        $cacheItem = $planCache->getItem(sprintf(
             '%s.%s.%s',
             self::PLAN_CACHE_KEY_PREFIX,
             $this->planCacheVersion,
             strtr($class, '\\', '.'),
         ));
-        if ($cacheItem !== null
-            && $cacheItem->isHit()
-        ) {
+        if ($cacheItem->isHit()) {
             /**
              * @var ClassPlan|false $plan
              */
@@ -864,39 +882,32 @@ final class PlanNormalizer implements NormalizerInterface, DenormalizerInterface
             return $this->plans[$class] = $plan;
         }
 
-        // A class referencing itself (directly or through other classes) isn't planned: data that's only invalid deep down would fall
-        // back on every level of the recursion (the PropertyNormalizer re-denormalizing the planned levels below again and again)
-        $this->plansInProgress[$class] = true;
+        $plan = $this->createPlan($class);
+        $planCache->save($cacheItem->set($plan));
+
+        return $this->plans[$class] = $plan;
+    }
+
+    /**
+     * A class referencing itself (directly or through other classes) isn't planned: data that's only invalid deep down would fall back on
+     * every level of the recursion (the PropertyNormalizer re-denormalizing the planned levels below again and again).
+     *
+     * @param class-string $class
+     *
+     * @return ClassPlan|false
+     */
+    private function createPlan(string $class): array | false
+    {
+        $this->plansInProgress[$class] = $class;
         try {
-            /**
-             * @var class-string $class Checked by isInScope()
-             */
-            $plan = $this->planFactory->create(
-                $class,
-                function (string $otherClass): bool {
-                    if (isset($this->plansInProgress[$otherClass])) {
-                        $this->markClassesOfRecursionAsRecursive($otherClass);
-
-                        return false;
-                    }
-
-                    return $this->plan($otherClass) !== false;
-                },
-            ) ?? false;
-            if (isset($this->recursiveClasses[$class])) {
-                $plan = false;
-            }
+            $plan = $this->planFactory->create($class, $this->hasPlanOutsideOfRecursion(...)) ?? false;
         } finally {
             unset($this->plansInProgress[$class]);
         }
 
-        if ($planCache !== null
-            && $cacheItem !== null
-        ) {
-            $planCache->save($cacheItem->set($plan));
-        }
-
-        return $this->plans[$class] = $plan;
+        return isset($this->recursiveClasses[$class])
+            ? false
+            : $plan;
     }
 
     // -- Diagnosis
@@ -972,17 +983,32 @@ final class PlanNormalizer implements NormalizerInterface, DenormalizerInterface
     }
 
     /**
+     * Whether another class has a plan, while a plan is built. A class whose plan is in progress references itself (directly or through
+     * other classes), so it and the classes of the recursion are marked as recursive.
+     */
+    private function hasPlanOutsideOfRecursion(string $otherClass): bool
+    {
+        if (isset($this->plansInProgress[$otherClass])) {
+            $this->markClassesOfRecursionAsRecursive($otherClass);
+
+            return false;
+        }
+
+        return $this->plan($otherClass) !== false;
+    }
+
+    /**
      * Marks the class and all classes whose plan is built from it (the classes in progress after it) as recursive.
      */
     private function markClassesOfRecursionAsRecursive(string $class): void
     {
         $isInRecursion = false;
-        foreach (array_keys($this->plansInProgress) as $classInProgress) {
+        foreach ($this->plansInProgress as $classInProgress) {
             if ($classInProgress === $class) {
                 $isInRecursion = true;
             }
             if ($isInRecursion) {
-                $this->recursiveClasses[$classInProgress] = true;
+                $this->recursiveClasses[$classInProgress] = $classInProgress;
             }
         }
     }

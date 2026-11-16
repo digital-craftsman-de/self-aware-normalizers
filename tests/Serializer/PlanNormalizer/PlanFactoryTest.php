@@ -7,11 +7,17 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\Described;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\Leaf;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\ReadModelFailed;
+use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Sample\ArrayWithCollectionClassDoc;
+use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Sample\ArrayWithIntOrIterableDoc;
+use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Sample\ArrayWithIterableDoc;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\NullPropertyTypeExtractor;
 use DigitalCraftsman\SelfAwareNormalizers\Testing\PlanNormalizer\ThrowingPropertyTypeExtractor;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 
 require_once dirname(__DIR__, 2).'/Test/PlanNormalizer/Fixture/ReadModel/fixtures.php';
 
@@ -102,6 +108,41 @@ final class PlanFactoryTest extends TestCase
                 sprintf('The type of %s::$name must not be extracted.', Leaf::class),
             ),
             $planFactoryWithOtherTypeExtractor->diagnose(Leaf::class, static fn (string $class): bool => false)->limitation,
+        );
+    }
+
+    /**
+     * Like AbstractObjectNormalizer::denormalizeParameter(): the native type array overrules a PHPDoc type unless that is an array, an
+     * iterable or a collection.
+     */
+    #[Test]
+    public function native_array_type_overrules_the_phpdoc_type_like_for_the_property_normalizer(): void
+    {
+        // -- Arrange
+        $planFactory = new PlanFactory(new PropertyInfoExtractor([], [new PhpDocExtractor(), new ReflectionExtractor()]), null, []);
+        $hasPlan = static fn (string $class): bool => false;
+
+        // -- Act
+        $diagnoses = array_map(
+            static fn (string $class): array => [
+                $planFactory->diagnose($class, $hasPlan)->limitation?->describe(),
+                $planFactory->diagnose($class, $hasPlan)->plan['parameters'][0][1] ?? null,
+            ],
+            [
+                ArrayWithIterableDoc::class,
+                ArrayWithCollectionClassDoc::class,
+                ArrayWithIntOrIterableDoc::class,
+            ],
+        );
+
+        // -- Assert
+        self::assertSame(
+            [
+                [null, ParameterKind::ARRAY],
+                ['collection is not an array: $values (ArrayObject<int, string>)', null],
+                ['union type: $values (int|iterable)', null],
+            ],
+            $diagnoses,
         );
     }
 

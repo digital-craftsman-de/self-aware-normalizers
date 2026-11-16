@@ -76,9 +76,9 @@ final class ListUnplannedClassesCommandTest extends KernelTestCase
         $result = json_decode($commandTester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($result);
 
-        self::assertSame(41, $result['numberOfClassesInScope']);
+        self::assertSame(45, $result['numberOfClassesInScope']);
         self::assertSame(2, $result['numberOfNotRelevantClasses']);
-        self::assertSame(18, $result['numberOfPlannedClasses']);
+        self::assertSame(22, $result['numberOfPlannedClasses']);
         self::assertSame(
             [
                 [
@@ -159,6 +159,8 @@ final class ListUnplannedClassesCommandTest extends KernelTestCase
                 // The template type is resolved as a class of the namespace, like by the PropertyNormalizer
                 ['Box', 'content', self::FIXTURE_NAMESPACE.'T', '', 'NOT_IN_SCOPE'],
                 ['Grove', 'tree', self::FIXTURE_NAMESPACE.'Tree', '', 'RECURSIVE_CLASS'],
+                // A nested collection of value objects whose inner key type differs from the outer one
+                ['KeyedCollections', 'countsByKey', 'DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\Count', '[][]', 'NOT_IN_SCOPE'],
                 // Nested collections of value objects and of classes without plan
                 ['NestedObjectCollections', 'counts', 'DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\Count', '[][]', 'NOT_IN_SCOPE'],
                 ['NestedObjectCollections', 'moments', \DateTimeImmutable::class, '[][]', 'NOT_IN_SCOPE'],
@@ -170,6 +172,8 @@ final class ListUnplannedClassesCommandTest extends KernelTestCase
                 ['Scalars', 'optionalStatus', 'DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\PlainStatus', '', 'NOT_IN_SCOPE'],
                 ['Scalars', 'createdAt', \DateTimeImmutable::class, '', 'NOT_IN_SCOPE'],
                 ['Scalars', 'defaultStatus', 'DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\PlainStatus', '', 'NOT_IN_SCOPE'],
+                ['WithSettings', 'settings', 'DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Other\Settings', '', 'NOT_IN_SCOPE'],
+                ['WithSettings', 'tree', self::FIXTURE_NAMESPACE.'Tree', '', 'RECURSIVE_CLASS'],
             ],
             array_map(
                 static fn (array $delegatedParameter): array => [
@@ -198,7 +202,8 @@ final class ListUnplannedClassesCommandTest extends KernelTestCase
         self::assertSame(Command::SUCCESS, $exitCode);
 
         $display = $commandTester->getDisplay();
-        self::assertStringContainsString('41 classes in scope (incl. 2 not relevant), 18 planned.', $display);
+        self::assertStringContainsString('Classes in the scope of the PlanNormalizer that are not (fully) on its fast path', $display);
+        self::assertStringContainsString('45 classes in scope (incl. 2 not relevant), 22 planned.', $display);
         self::assertStringContainsString(self::lines(
             'Skipped, as they can not be loaded',
             '----------------------------------',
@@ -260,6 +265,10 @@ final class ListUnplannedClassesCommandTest extends KernelTestCase
             sprintf('   %sObjects::$moments (DateTimeImmutable[])', self::FIXTURE_NAMESPACE),
             sprintf('   %sScalars::$createdAt', self::FIXTURE_NAMESPACE),
             '',
+            ' DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\Other\Settings',
+            ' (not in the scope of the plan normalizer)',
+            sprintf('   %sWithSettings::$settings', self::FIXTURE_NAMESPACE),
+            '',
             // A self-aware value object only shows up as the class of the value of a delegated parameter
             ' DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\NameValue',
             ' (self-aware value object)',
@@ -272,9 +281,11 @@ final class ListUnplannedClassesCommandTest extends KernelTestCase
             ' DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\Tree',
             ' (references itself (directly or through other classes))',
             sprintf('   %sGrove::$tree', self::FIXTURE_NAMESPACE),
+            sprintf('   %sWithSettings::$tree', self::FIXTURE_NAMESPACE),
             '',
             ' DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\Count',
             ' (not in the scope of the plan normalizer)',
+            sprintf('   %sKeyedCollections::$countsByKey (Count[][])', self::FIXTURE_NAMESPACE),
             sprintf('   %sNestedObjectCollections::$counts (Count[][])', self::FIXTURE_NAMESPACE),
             '',
             ' DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ValueObject\PlainStatus',
@@ -405,8 +416,9 @@ final class ListUnplannedClassesCommandTest extends KernelTestCase
         self::assertStringNotContainsString('1. Not relevant', $display);
         self::assertStringNotContainsString('abstract class', $display);
         self::assertStringContainsString(sprintf('%sUnionParameter', self::FIXTURE_NAMESPACE), $display);
-        // Only the parameter whose class could be put on the fast path is left
+        // Only the parameters whose class could be put on the fast path are left, also after a parameter that is hidden
         self::assertStringContainsString(sprintf('%sGrove::$tree', self::FIXTURE_NAMESPACE), $display);
+        self::assertStringContainsString(sprintf('%sWithSettings::$tree', self::FIXTURE_NAMESPACE), $display);
         self::assertStringNotContainsString('not in the scope of the plan normalizer', $display);
     }
 
@@ -517,6 +529,15 @@ final class ListUnplannedClassesCommandTest extends KernelTestCase
         self::assertStringContainsString(self::withoutWhitespace(sprintf('%s is an accepted unplanned class, but does not fall back anymore (planned or removed). Remove it from the accepted unplanned classes', Leaf::class)), $display);
         self::assertStringContainsString(self::withoutWhitespace(sprintf('%sRemoved is an accepted unplanned class, but does not fall back anymore', self::FIXTURE_NAMESPACE)), $display);
         self::assertStringNotContainsString(self::withoutWhitespace('falls back to the PropertyNormalizer. Put it'), $display);
+
+        // Listed as JSON list
+        $jsonCommandTester = new CommandTester($this->commandForFixtures($acceptedUnplannedClasses));
+        $jsonCommandTester->execute([
+            '--format' => 'json',
+        ]);
+        $result = json_decode($jsonCommandTester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($result);
+        self::assertSame([Leaf::class, self::FIXTURE_NAMESPACE.'Removed'], $result['staleAcceptedClasses']);
     }
 
     #[Test]
@@ -554,7 +575,7 @@ final class ListUnplannedClassesCommandTest extends KernelTestCase
         $result = json_decode($commandTester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($result);
         // The source directories of the configuration are the fixtures
-        self::assertSame(18, $result['numberOfPlannedClasses']);
+        self::assertSame(22, $result['numberOfPlannedClasses']);
 
         foreach ($result['notRelevantClasses'] as $notRelevantClass) {
             self::assertFalse($planNormalizer->supportsDenormalization([], $notRelevantClass['class']), $notRelevantClass['class']);

@@ -7,6 +7,7 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Testing\PlanNormalizer;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\Exception\FallbackIsRequired;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\PlanFactory;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\PlanNormalizer;
+use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\ArrayTypeMismatch;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\ElementType;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\Generic;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\ImageElement;
@@ -38,7 +39,7 @@ final class PlanNormalizerEquivalenceTest extends PlanNormalizerEquivalenceTestC
     #[\Override]
     protected static function minimumNumberOfPlannedClasses(): int
     {
-        return 18;
+        return 22;
     }
 
     /**
@@ -49,6 +50,8 @@ final class PlanNormalizerEquivalenceTest extends PlanNormalizerEquivalenceTestC
     {
         return [
             Generic::class => static fn (): Generic => new Generic(new Leaf('Example')),
+            // The PHPDoc type (string) is wrong on purpose
+            ArrayTypeMismatch::class => static fn (): ArrayTypeMismatch => new \ReflectionClass(ArrayTypeMismatch::class)->newInstance(['Example']),
         ];
     }
 
