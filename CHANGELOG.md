@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0
+
+- Added the optional plan normalizer (`self_aware_normalizers.plan_normalizer`, disabled by default): a fast path in front of the `PropertyNormalizer` for plain constructor-promoted classes with exactly the same results. Its fallback is validated when the container is built, and it can only be enabled with the audited versions of `symfony/serializer`, `symfony/type-info` and `symfony/property-info` (8.1).
+- Added the command `self-aware-normalizers:plan-normalizer:list-unplanned` that lists the classes the plan normalizer can't plan, with the reason.
+- Added `PlanNormalizerEquivalenceTestCase` and `SerializerMappingIsNotUsedTestCase` for the tests of applications using the plan normalizer.
+
 ## 1.4.0
 
 - Added support for PHP 8.6.
