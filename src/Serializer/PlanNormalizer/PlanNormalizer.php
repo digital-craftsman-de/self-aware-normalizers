@@ -923,7 +923,8 @@ final class PlanNormalizer implements NormalizerInterface, DenormalizerInterface
          */
         $planDiagnosis = $this->planFactory->diagnose(
             $class,
-            fn (string $otherClass): bool => $this->plan($otherClass) !== false,
+            // Whether another class has a plan only decides the kind of a parameter, never a limitation, which is all that's read here
+            static fn (string $otherClass): bool => false,
         );
 
         if ($plan === false) {

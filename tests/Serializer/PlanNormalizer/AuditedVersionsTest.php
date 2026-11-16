@@ -32,9 +32,9 @@ final class AuditedVersionsTest extends TestCase
     {
         // -- Arrange
         $installedVersions = [
-            'symfony/serializer' => 'v8.1.10',
+            'symfony/serializer' => null,
             'symfony/type-info' => '8.2.0.0',
-            'symfony/property-info' => null,
+            'symfony/property-info' => 'v8.1.10',
         ];
 
         // -- Act
@@ -43,8 +43,8 @@ final class AuditedVersionsTest extends TestCase
         // -- Assert
         self::assertSame(
             [
+                'symfony/serializer is not installed (audited: 8.1)',
                 'symfony/type-info is installed in version 8.2.0.0 (audited: 8.1)',
-                'symfony/property-info is not installed (audited: 8.1)',
             ],
             $violations,
         );

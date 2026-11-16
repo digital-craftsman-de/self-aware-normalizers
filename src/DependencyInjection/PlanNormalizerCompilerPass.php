@@ -119,15 +119,17 @@ final readonly class PlanNormalizerCompilerPass implements CompilerPassInterface
         }
     }
 
+    /**
+     * The priority of the last normalizer tag (0 without priority, like the SerializerPass).
+     */
     private static function priority(Definition $definition): int
     {
-        $priority = 0;
-        foreach ($definition->getTag(self::NORMALIZER_TAG) as $attributes) {
-            /** @var array{priority?: int} $attributes */
-            $priority = $attributes['priority'] ?? 0;
-        }
+        $tags = $definition->getTag(self::NORMALIZER_TAG);
 
-        return $priority;
+        /** @var array{priority?: int} $attributes */
+        $attributes = end($tags);
+
+        return $attributes['priority'] ?? 0;
     }
 
     private static function invalidFallback(

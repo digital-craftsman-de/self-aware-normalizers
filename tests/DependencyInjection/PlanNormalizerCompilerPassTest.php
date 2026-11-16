@@ -236,6 +236,25 @@ final class PlanNormalizerCompilerPassTest extends TestCase
             ],
             'Its priority (-50) must be lower than the one of the plan normalizer (-60, self_aware_normalizers.plan_normalizer.priority).',
         ];
+
+        yield 'same priority as the plan normalizer' => [
+            static function (ContainerBuilder $container): void {
+            },
+            [
+                'priority' => -50,
+            ],
+            'Its priority (-50) must be lower than the one of the plan normalizer (-50, self_aware_normalizers.plan_normalizer.priority).',
+        ];
+
+        yield 'tagged without priority' => [
+            static function (ContainerBuilder $container): void {
+                $container->getDefinition(TestKernel::FALLBACK_NORMALIZER_ID)
+                    ->clearTag('serializer.normalizer')
+                    ->addTag('serializer.normalizer');
+            },
+            [],
+            'Its priority (0) must be lower than the one of the plan normalizer (-45, self_aware_normalizers.plan_normalizer.priority).',
+        ];
     }
 
     /**
