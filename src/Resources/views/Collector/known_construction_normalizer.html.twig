@@ -28,7 +28,7 @@
 {% block menu %}
     <span class="label{{ collector.fallbackCount > 0 ? ' label-status-warning' }}{{ collector.fastCount == 0 and collector.fallbackCount == 0 ? ' disabled' }}">
         <span class="icon">{{ source('@WebProfiler/Icon/serializer.svg', ignore_missing = true) }}</span>
-        <strong>Self-Aware Normalizers</strong>
+        <strong>Self-Aware Norm.</strong>
         {% if collector.fallbackCount > 0 %}
             <span class="count">{{ collector.fallbackCount }}</span>
         {% endif %}

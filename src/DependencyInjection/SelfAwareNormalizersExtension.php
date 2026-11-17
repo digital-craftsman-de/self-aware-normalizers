@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace DigitalCraftsman\SelfAwareNormalizers\DependencyInjection;
 
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Debug\KnownConstructionNormalizerDataCollector;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Debug\Recorder;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\KnownConstructionNormalizer;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\NormalizerChain;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\PlanFactory;
@@ -114,6 +116,36 @@ final class SelfAwareNormalizersExtension extends Extension
         ]))
             ->addTag('serializer.normalizer', [
                 'priority' => $config[Configuration::KNOWN_CONSTRUCTION_NORMALIZER_PRIORITY_KEY],
+            ]);
+
+        if ($container->getParameter('kernel.debug') === true) {
+            self::registerDataCollector($container);
+        }
+    }
+
+    /**
+     * The profiler panel. Registered here (and not in a compiler pass) on purpose: the profiler orders the panels of the same priority by
+     * the order in which they were registered, so the position of the panel in the menu follows the order of the bundles in bundles.php
+     * (e.g. after the serializer of the FrameworkBundle and before the panels of bundles listed after this one).
+     *
+     * Whether the profiler exists is only known later: the KnownConstructionNormalizerProfilerPass removes the collector and the recorder
+     * again without it, and gives the KnownConstructionNormalizer the recorder with it.
+     */
+    private static function registerDataCollector(ContainerBuilder $container): void
+    {
+        $container->setDefinition(KnownConstructionNormalizerProfilerPass::RECORDER_SERVICE_ID, new Definition(Recorder::class))
+            ->addTag('kernel.reset', [
+                'method' => 'reset',
+            ]);
+
+        $container->setDefinition(KnownConstructionNormalizerProfilerPass::DATA_COLLECTOR_SERVICE_ID, new Definition(KnownConstructionNormalizerDataCollector::class, [
+            new Reference(KnownConstructionNormalizerProfilerPass::RECORDER_SERVICE_ID),
+            new Reference(self::KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID),
+            [],
+        ]))
+            ->addTag('data_collector', [
+                'template' => KnownConstructionNormalizerDataCollector::TEMPLATE,
+                'id' => KnownConstructionNormalizerDataCollector::NAME,
             ]);
     }
 }

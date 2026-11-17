@@ -10,6 +10,7 @@ use Symfony\Component\Config\Loader\LoaderInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
+use Symfony\Component\HttpKernel\Bundle\BundleInterface;
 use Symfony\Component\HttpKernel\Kernel;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
@@ -45,12 +46,16 @@ final class TestKernel extends Kernel
          * @var array<string, mixed>
          */
         private readonly array $knownConstructionNormalizerConfig = [],
+        /**
+         * @var list<BundleInterface> Registered after the bundles of the kernel
+         */
+        private readonly array $additionalBundles = [],
     ) {
         parent::__construct($environment, $debug);
     }
 
     /**
-     * @return iterable<FrameworkBundle|SelfAwareNormalizersBundle>
+     * @return iterable<BundleInterface>
      */
     #[\Override]
     public function registerBundles(): iterable
@@ -58,6 +63,7 @@ final class TestKernel extends Kernel
         return [
             new FrameworkBundle(),
             new SelfAwareNormalizersBundle(),
+            ...$this->additionalBundles,
         ];
     }
 

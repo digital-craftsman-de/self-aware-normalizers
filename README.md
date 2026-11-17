@@ -368,7 +368,7 @@ The type extractor of the fallback re-parses the docblocks of every class on eve
 
 ### Profiler panel
 
-In debug mode with the Symfony profiler, the panel "Self-Aware Normalizers" shows how the `KnownConstructionNormalizer` handled the classes of a request. The toolbar shows how many objects took the fast path and how many missed it. The panel lists:
+In debug mode with the Symfony profiler, the panel "Self-Aware Normalizers" (menu entry "Self-Aware Norm.", placed in the order of the bundles) shows how the `KnownConstructionNormalizer` handled the classes of a request. The toolbar shows how many objects took the fast path and how many missed it. The panel lists:
 
 - the objects (de)normalized through a plan, through the fallback after the plan was tried, and not handled at all, and the value objects handled inline,
 - every class that missed the fast path with the reason and a hint how to fix it: no plan (e.g. "property has hooks: $name"), a context option or format that isn't supported, a fallback while (de)normalizing (e.g. "Page::$count: int expected, string given") or another normalizer that claims it,

@@ -8,13 +8,13 @@ use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Debug\Recorder;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 
 /**
- * Registers the profiler panel of the KnownConstructionNormalizer (KnownConstructionNormalizerDataCollector) and gives the
- * KnownConstructionNormalizer its Recorder, only in debug mode and only when the profiler is enabled. Otherwise, the KnownConstructionNormalizer
- * has no recorder and records nothing.
+ * The profiler panel of the KnownConstructionNormalizer (KnownConstructionNormalizerDataCollector) and its Recorder are registered by the
+ * extension in debug mode (so the panel keeps the position of the bundle in the menu). Only now it's known whether the profiler is enabled:
+ * without it, both are removed again, with it, the KnownConstructionNormalizer gets the Recorder. Without debug mode or profiler, the
+ * KnownConstructionNormalizer has no recorder and records nothing.
  *
  * Runs before the ProfilerPass of the FrameworkBundle, which collects the data collectors.
  *
@@ -28,29 +28,18 @@ final readonly class KnownConstructionNormalizerProfilerPass implements Compiler
     #[\Override]
     public function process(ContainerBuilder $container): void
     {
-        if (!$container->hasDefinition(SelfAwareNormalizersExtension::KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID)
-            || !$container->hasDefinition('profiler')
-            || $container->getParameter('kernel.debug') !== true
-        ) {
+        if (!$container->hasDefinition(self::DATA_COLLECTOR_SERVICE_ID)) {
             return;
         }
 
-        $container->setDefinition(self::RECORDER_SERVICE_ID, new Definition(Recorder::class))
-            ->addTag('kernel.reset', [
-                'method' => 'reset',
-            ]);
+        if (!$container->hasDefinition('profiler')) {
+            $container->removeDefinition(self::DATA_COLLECTOR_SERVICE_ID);
+            $container->removeDefinition(self::RECORDER_SERVICE_ID);
+
+            return;
+        }
 
         $container->getDefinition(SelfAwareNormalizersExtension::KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID)
             ->setArgument('$recorder', new Reference(self::RECORDER_SERVICE_ID));
-
-        $container->setDefinition(self::DATA_COLLECTOR_SERVICE_ID, new Definition(KnownConstructionNormalizerDataCollector::class, [
-            new Reference(self::RECORDER_SERVICE_ID),
-            new Reference(SelfAwareNormalizersExtension::KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID),
-            [],
-        ]))
-            ->addTag('data_collector', [
-                'template' => KnownConstructionNormalizerDataCollector::TEMPLATE,
-                'id' => KnownConstructionNormalizerDataCollector::NAME,
-            ]);
     }
 }

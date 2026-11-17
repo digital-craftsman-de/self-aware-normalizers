@@ -18,6 +18,8 @@ use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixtu
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Count;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Flag;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Weight;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Profiler\LaterBundle;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Profiler\LaterDataCollector;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\TestKernel;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -26,6 +28,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Bundle\BundleInterface;
 use Symfony\Component\Serializer\Encoder\JsonEncoder;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
@@ -361,6 +364,31 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
         self::assertSame(KnownConstructionNormalizerDataCollector::TEMPLATE, KnownConstructionNormalizerDataCollector::getTemplate());
     }
 
+    /**
+     * The profiler orders panels of the same priority by their registration, which follows the order of the bundles.
+     */
+    #[Test]
+    public function the_panel_follows_the_order_of_the_bundles_in_the_menu(): void
+    {
+        // -- Arrange
+        $kernel = $this->bootedKernel('profiler_menu', true, null, [], true, [new LaterBundle()]);
+
+        // -- Act
+        $templates = $kernel->getContainer()->getParameter('data_collector.templates');
+        self::assertIsArray($templates);
+        $ids = array_keys($templates);
+
+        // -- Assert
+        $positionOfSerializer = array_search('serializer.data_collector', $ids, true);
+        $positionOfPanel = array_search(KnownConstructionNormalizerProfilerPass::DATA_COLLECTOR_SERVICE_ID, $ids, true);
+        $positionOfLaterBundle = array_search(LaterDataCollector::class, $ids, true);
+        self::assertIsInt($positionOfSerializer);
+        self::assertIsInt($positionOfPanel);
+        self::assertIsInt($positionOfLaterBundle);
+        self::assertLessThan($positionOfPanel, $positionOfSerializer);
+        self::assertLessThan($positionOfLaterBundle, $positionOfPanel);
+    }
+
     #[Test]
     public function nothing_is_registered_or_recorded_without_debug_or_profiler(): void
     {
@@ -412,7 +440,7 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
         // -- Assert
         self::assertStringContainsString('fallback', $html);
         self::assertStringContainsString('[yellow]', $html);
-        self::assertStringContainsString('Self-Aware Normalizers', $html);
+        self::assertStringContainsString('Self-Aware Norm.', $html);
         self::assertStringContainsString(sprintf('%s::$name: string expected, int given', Leaf::class), $html);
         self::assertStringContainsString('Not handled by design', $html);
         self::assertStringContainsString('$moments', $html);
@@ -463,6 +491,7 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
     /**
      * @param (\Closure(ContainerBuilder): void)|null $configure
      * @param array<string, mixed>                    $knownConstructionNormalizerConfig
+     * @param list<BundleInterface>                   $additionalBundles
      */
     private function bootedKernel(
         string $environment,
@@ -470,6 +499,7 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
         ?\Closure $configure = null,
         array $knownConstructionNormalizerConfig = [],
         bool $isProfilerEnabled = true,
+        array $additionalBundles = [],
     ): TestKernel {
         $kernel = new TestKernel($environment, $debug, static function (ContainerBuilder $container) use ($configure, $isProfilerEnabled): void {
             if ($isProfilerEnabled) {
@@ -483,7 +513,7 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
             if ($configure !== null) {
                 $configure($container);
             }
-        }, $knownConstructionNormalizerConfig);
+        }, $knownConstructionNormalizerConfig, $additionalBundles);
         $this->kernels[] = $kernel;
         $kernel->boot();
 
