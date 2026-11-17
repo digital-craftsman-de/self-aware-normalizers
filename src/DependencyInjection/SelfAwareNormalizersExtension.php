@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace DigitalCraftsman\SelfAwareNormalizers\DependencyInjection;
 
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\AuditedVersions;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\ListUnplannedClassesCommand;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\PlanFactory;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\PlanNormalizer;
@@ -14,7 +13,6 @@ use Symfony\Component\DependencyInjection\Argument\AbstractArgument;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Definition;
-use Symfony\Component\DependencyInjection\Exception\LogicException;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 use Symfony\Component\DependencyInjection\Parameter;
@@ -57,6 +55,7 @@ final class SelfAwareNormalizersExtension extends Extension
          *     supported_class_name_pattern: ?non-empty-string,
          *     supported_parent_types: list<class-string>,
          *     accepted_unplanned_classes: array<string, string>,
+         *     accepted_context_keys: list<string>,
          *     source_directories: list<string>,
          *     plan_cache_pool: ?string,
          *     fallback_normalizer: string,
@@ -87,6 +86,7 @@ final class SelfAwareNormalizersExtension extends Extension
      *   supported_class_name_pattern: ?non-empty-string,
      *   supported_parent_types: list<class-string>,
      *   accepted_unplanned_classes: array<string, string>,
+     *   accepted_context_keys: list<string>,
      *   source_directories: list<string>,
      *   plan_cache_pool: ?string,
      *   fallback_normalizer: string,
@@ -97,14 +97,6 @@ final class SelfAwareNormalizersExtension extends Extension
         array $config,
         ContainerBuilder $container,
     ): void {
-        $violations = AuditedVersions::violations();
-        if ($violations !== []) {
-            throw new LogicException(sprintf(
-                'The plan normalizer of digital-craftsman/self-aware-normalizers (self_aware_normalizers.plan_normalizer) mirrors internals of the serializer and can only be enabled with the versions it was audited against: %s. Disable it or update digital-craftsman/self-aware-normalizers.',
-                implode('; ', $violations),
-            ));
-        }
-
         $planCachePool = $config[Configuration::PLAN_NORMALIZER_PLAN_CACHE_POOL_KEY];
 
         $container->setDefinition(self::PLAN_FACTORY_SERVICE_ID, new Definition(PlanFactory::class, [
@@ -124,6 +116,7 @@ final class SelfAwareNormalizersExtension extends Extension
             $planCachePool !== null
                 ? new Parameter(self::PLAN_CACHE_VERSION_PARAMETER)
                 : 'uncached',
+            '$acceptedContextKeys' => $config[Configuration::PLAN_NORMALIZER_ACCEPTED_CONTEXT_KEYS_KEY],
         ]))
             ->addTag('serializer.normalizer', [
                 'priority' => $config[Configuration::PLAN_NORMALIZER_PRIORITY_KEY],

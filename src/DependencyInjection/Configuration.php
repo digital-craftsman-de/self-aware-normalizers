@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DigitalCraftsman\SelfAwareNormalizers\DependencyInjection;
 
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\PlanNormalizer;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
@@ -25,6 +26,7 @@ final class Configuration implements ConfigurationInterface
     public const string PLAN_NORMALIZER_SUPPORTED_CLASS_NAME_PATTERN_KEY = 'supported_class_name_pattern';
     public const string PLAN_NORMALIZER_SUPPORTED_PARENT_TYPES_KEY = 'supported_parent_types';
     public const string PLAN_NORMALIZER_ACCEPTED_UNPLANNED_CLASSES_KEY = 'accepted_unplanned_classes';
+    public const string PLAN_NORMALIZER_ACCEPTED_CONTEXT_KEYS_KEY = 'accepted_context_keys';
     public const string PLAN_NORMALIZER_SOURCE_DIRECTORIES_KEY = 'source_directories';
     public const string PLAN_NORMALIZER_PLAN_CACHE_POOL_KEY = 'plan_cache_pool';
     public const string PLAN_NORMALIZER_FALLBACK_NORMALIZER_KEY = 'fallback_normalizer';
@@ -87,6 +89,19 @@ final class Configuration implements ConfigurationInterface
                             ->defaultValue([])
                             ->scalarPrototype()->end()
                         ->end()
+                        ->arrayNode(self::PLAN_NORMALIZER_ACCEPTED_CONTEXT_KEYS_KEY)
+                            ->info('Further context keys the plan normalizer is used with, for options of the project that the project guarantees not to change the result of the PropertyNormalizer (e.g. options of its own normalizers). A context with any other key that is not built in falls back to the PropertyNormalizer.')
+                            ->defaultValue([])
+                            ->scalarPrototype()->end()
+                            ->validate()
+                                ->ifTrue(static fn (array $keys): bool => array_filter(
+                                    $keys,
+                                    static fn (mixed $key): bool => !is_string($key)
+                                        || !PlanNormalizer::isContextOptionAcceptable($key),
+                                ) !== [])
+                                ->thenInvalid('The accepted context keys must not contain options the plan normalizer does not implement or only accepts with a specific value (see PlanNormalizer::NOT_IMPLEMENTED_CONTEXT_OPTIONS), %s given.')
+                            ->end()
+                        ->end()
                         ->arrayNode(self::PLAN_NORMALIZER_SOURCE_DIRECTORIES_KEY)
                             ->info('Directories whose classes are listed by the list command (recursively), e.g. "%kernel.project_dir%/src".')
                             ->defaultValue([])
@@ -97,7 +112,7 @@ final class Configuration implements ConfigurationInterface
                             ->defaultNull()
                         ->end()
                         ->scalarNode(self::PLAN_NORMALIZER_FALLBACK_NORMALIZER_KEY)
-                            ->info('Service id of the PropertyNormalizer the plan normalizer falls back to. Must be built without class metadata factory, name converter, class discriminator resolver and object class resolver.')
+                            ->info('Service id of the PropertyNormalizer the plan normalizer falls back to. Must be built without class metadata factory, name converter, class discriminator resolver and object class resolver, and with every other constructor argument but the type extractor and the default context in its default value.')
                             ->defaultValue(self::DEFAULT_FALLBACK_NORMALIZER)
                             ->cannotBeEmpty()
                         ->end()

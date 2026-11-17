@@ -133,6 +133,26 @@ php-8.5-tests-ci:
 php-8.6-tests-ci:
 	docker compose run --rm php-8.6 ./vendor/bin/phpunit
 
+## php-8.5-tests-next-symfony-ci	Run the tests with PHP 8.5 against the next minor version of Symfony for CI. Changes composer.json,
+##				composer.lock and vendor, don't run it locally.
+NEXT_SYMFONY_VERSION = 8.2.*
+.PHONY: php-8.5-tests-next-symfony-ci
+php-8.5-tests-next-symfony-ci:
+	docker compose run --rm php-8.5 sh -c "\
+		composer config minimum-stability dev \
+		&& composer config prefer-stable true \
+		&& composer require --no-update --no-interaction \
+			'symfony/framework-bundle:$(NEXT_SYMFONY_VERSION)' \
+			'symfony/serializer:$(NEXT_SYMFONY_VERSION)' \
+			'symfony/type-info:$(NEXT_SYMFONY_VERSION)' \
+			'symfony/yaml:$(NEXT_SYMFONY_VERSION)' \
+		&& composer require --dev --no-update --no-interaction \
+			'symfony/property-access:$(NEXT_SYMFONY_VERSION)' \
+			'symfony/property-info:$(NEXT_SYMFONY_VERSION)' \
+		&& composer update --with-all-dependencies --no-interaction --no-progress \
+		&& composer show symfony/serializer | grep -E '^versions : \* v?8\.2\.' \
+		&& ./vendor/bin/phpunit"
+
 ## php-mutation-testing-ci	Run mutation testing for CI.
 .PHONY: php-mutation-testing-ci
 php-mutation-testing-ci:

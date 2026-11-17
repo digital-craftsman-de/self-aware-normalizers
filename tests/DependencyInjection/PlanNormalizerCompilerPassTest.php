@@ -8,6 +8,9 @@ use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\ListUnplanne
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\PlanFactory;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\PlanNormalizer;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\Fixture\ReadModel\Leaf;
+use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\FuturePropertyNormalizer;
+use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\FuturePropertyNormalizerSubclass;
+use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\FuturePropertyNormalizerWithRequiredParameter;
 use DigitalCraftsman\SelfAwareNormalizers\Test\PlanNormalizer\TestKernel;
 use DigitalCraftsman\SelfAwareNormalizers\Testing\PlanNormalizer\SerializerComparison;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -149,7 +152,7 @@ final class PlanNormalizerCompilerPassTest extends TestCase
                     ->setArguments([]);
             },
             [],
-            sprintf('It must be a %s, but is %s.', PropertyNormalizer::class, ObjectNormalizer::class),
+            sprintf('It must be a %s (not a subclass), but is %s.', PropertyNormalizer::class, ObjectNormalizer::class),
         ];
 
         yield 'method call' => [
@@ -335,6 +338,20 @@ final class PlanNormalizerCompilerPassTest extends TestCase
             'The plan normalizer needs a scope: configure the supported class name pattern or supported parent types.',
         ];
 
+        yield 'accepted context key the plan does not implement' => [
+            [
+                'accepted_context_keys' => ['app_option', 'groups'],
+            ],
+            'The accepted context keys must not contain options the plan normalizer does not implement or only accepts with a specific value (see PlanNormalizer::NOT_IMPLEMENTED_CONTEXT_OPTIONS)',
+        ];
+
+        yield 'accepted context key with an accepted value' => [
+            [
+                'accepted_context_keys' => ['allow_extra_attributes'],
+            ],
+            'The accepted context keys must not contain options the plan normalizer does not implement or only accepts with a specific value',
+        ];
+
         yield 'invalid pattern' => [
             [
                 'supported_class_name_pattern' => 'ReadModel',
@@ -379,7 +396,200 @@ final class PlanNormalizerCompilerPassTest extends TestCase
         self::assertTrue($comparison->planFactory->isInScope(\ArrayObject::class));
     }
 
+    #[Test]
+    public function configured_accepted_context_keys_are_accepted_by_the_plan_normalizer(): void
+    {
+        // -- Arrange
+        $kernel = $this->bootedKernel('accepted_context_keys', null, [
+            'accepted_context_keys' => ['app_option'],
+        ]);
+        $defaultKernel = $this->bootedKernel('valid');
+
+        // -- Act
+        $comparison = SerializerComparison::fromSerializer($kernel->getContainer()->get('test.service_container')->get('serializer'));
+        $defaultComparison = SerializerComparison::fromSerializer($defaultKernel->getContainer()->get('test.service_container')->get('serializer'));
+
+        // -- Assert
+        self::assertSame(['app_option'], $comparison->acceptedContextKeys);
+        self::assertTrue($comparison->planNormalizer->supportsDenormalization([], Leaf::class, null, ['app_option' => true]));
+        self::assertTrue($comparison->planNormalizer->supportsNormalization(new Leaf('Example'), null, ['app_option' => true]));
+        self::assertSame([], $defaultComparison->acceptedContextKeys);
+        self::assertFalse($defaultComparison->planNormalizer->supportsDenormalization([], Leaf::class, null, ['app_option' => true]));
+    }
+
+    /**
+     * @return iterable<string, array{
+     *   0: class-string,
+     *   1: array<array-key, mixed>,
+     *   2: string,
+     * }>
+     */
+    public static function fallbacksOfALaterVersionWithInvalidArguments(): iterable
+    {
+        yield 'unknown parameter with another value' => [
+            FuturePropertyNormalizer::class,
+            [null, null, new Reference('app.type_extractor'), null, null, [], true],
+            'The argument $newOption of its constructor is not known to the plan normalizer, so it must keep its default value. Remove the argument or disable the plan normalizer.',
+        ];
+
+        yield 'unknown parameter with another value by name' => [
+            FuturePropertyNormalizer::class,
+            [
+                '$propertyTypeExtractor' => new Reference('app.type_extractor'),
+                '$newOption' => true,
+            ],
+            'The argument $newOption of its constructor is not known to the plan normalizer, so it must keep its default value.',
+        ];
+
+        yield 'unknown parameter with a parameter of another value' => [
+            FuturePropertyNormalizer::class,
+            [null, null, new Reference('app.type_extractor'), null, null, [], '%app.enabled%'],
+            'The argument $newOption of its constructor is not known to the plan normalizer, so it must keep its default value.',
+        ];
+
+        yield 'unknown required parameter' => [
+            FuturePropertyNormalizerWithRequiredParameter::class,
+            [false, new Reference('app.type_extractor')],
+            'The argument $requiredOption of its constructor is not known to the plan normalizer, so it must keep its default value.',
+        ];
+
+        yield 'argument without parameter' => [
+            FuturePropertyNormalizer::class,
+            [null, null, new Reference('app.type_extractor'), null, null, [], false, 'surplus'],
+            'Its constructor has no parameter for the argument at position 7.',
+        ];
+
+        yield 'named argument without parameter' => [
+            FuturePropertyNormalizer::class,
+            [
+                '$propertyTypeExtractor' => new Reference('app.type_extractor'),
+                '$doesNotExist' => true,
+            ],
+            'Its constructor has no parameter for the argument $doesNotExist.',
+        ];
+
+        yield 'subclass' => [
+            FuturePropertyNormalizerSubclass::class,
+            [null, null, new Reference('app.type_extractor')],
+            sprintf('It must be a %s (not a subclass), but is %s.', FuturePropertyNormalizer::class, FuturePropertyNormalizerSubclass::class),
+        ];
+
+        yield 'known parameter by name' => [
+            FuturePropertyNormalizer::class,
+            [
+                '$propertyTypeExtractor' => new Reference('app.type_extractor'),
+                '$nameConverter' => new Reference('app.name_converter'),
+            ],
+            'It must be built without name converter ($nameConverter)',
+        ];
+    }
+
+    /**
+     * The constructor of the fallback of a later version of the serializer may have parameters the pass doesn't know. Simulated through
+     * a fallback class of its own (the PropertyNormalizer is final), with the pass expecting it instead of the PropertyNormalizer.
+     *
+     * @param class-string            $fallbackClass
+     * @param array<array-key, mixed> $arguments
+     */
+    #[Test]
+    #[DataProvider('fallbacksOfALaterVersionWithInvalidArguments')]
+    public function container_build_fails_with_an_argument_the_pass_does_not_know(
+        string $fallbackClass,
+        array $arguments,
+        string $expectedMessagePart,
+    ): void {
+        // -- Arrange
+        $container = self::containerWithFallback($fallbackClass, $arguments);
+
+        // -- Assert
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage($expectedMessagePart);
+
+        // -- Act
+        new PlanNormalizerCompilerPass($fallbackClass === FuturePropertyNormalizerWithRequiredParameter::class ? $fallbackClass : FuturePropertyNormalizer::class)
+            ->process($container);
+    }
+
+    /**
+     * @return iterable<string, array{0: array<array-key, mixed>}>
+     */
+    public static function fallbacksOfALaterVersionWithValidArguments(): iterable
+    {
+        yield 'unknown parameter not configured' => [
+            [null, null, new Reference('app.type_extractor')],
+        ];
+
+        yield 'unknown parameter with its default value' => [
+            [null, null, new Reference('app.type_extractor'), null, null, [], false],
+        ];
+
+        yield 'unknown parameter with a parameter of its default value' => [
+            [null, null, new Reference('app.type_extractor'), null, null, [], '%app.disabled%'],
+        ];
+
+        yield 'by name' => [
+            [
+                '$classMetadataFactory' => null,
+                '$propertyTypeExtractor' => new Reference('app.type_extractor'),
+                '$defaultContext' => [],
+                '$newOption' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param array<array-key, mixed> $arguments
+     */
+    #[Test]
+    #[DataProvider('fallbacksOfALaterVersionWithValidArguments')]
+    public function unknown_arguments_with_their_default_value_are_accepted(
+        array $arguments,
+    ): void {
+        // -- Arrange
+        $container = self::containerWithFallback(FuturePropertyNormalizer::class, $arguments);
+
+        // -- Act
+        new PlanNormalizerCompilerPass(FuturePropertyNormalizer::class)->process($container);
+
+        // -- Assert
+        self::assertEquals(
+            new Reference('app.type_extractor'),
+            $container->getDefinition(SelfAwareNormalizersExtension::PLAN_FACTORY_SERVICE_ID)->getArgument(0),
+        );
+    }
+
     // -- Helpers
+
+    /**
+     * Container with the services of the plan normalizer as the extension defines them, after the arguments are resolved.
+     *
+     * @param class-string            $fallbackClass
+     * @param array<array-key, mixed> $arguments
+     */
+    private static function containerWithFallback(
+        string $fallbackClass,
+        array $arguments,
+    ): ContainerBuilder {
+        $container = new ContainerBuilder();
+        $container->setParameter('app.enabled', true);
+        $container->setParameter('app.disabled', false);
+        $container->setDefinition(SelfAwareNormalizersExtension::PLAN_FACTORY_SERVICE_ID, new Definition(PlanFactory::class, [null]));
+        $container->setDefinition(SelfAwareNormalizersExtension::PLAN_NORMALIZER_SERVICE_ID, new Definition(PlanNormalizer::class, [
+            new Reference(SelfAwareNormalizersExtension::PLAN_FACTORY_SERVICE_ID),
+            new Reference('app.fallback'),
+            null,
+            'uncached',
+        ]))
+            ->addTag('serializer.normalizer', [
+                'priority' => -45,
+            ]);
+        $container->setDefinition('app.fallback', new Definition($fallbackClass, $arguments))
+            ->addTag('serializer.normalizer', [
+                'priority' => -50,
+            ]);
+
+        return $container;
+    }
 
     /**
      * @param (\Closure(ContainerBuilder): void)|null $configure

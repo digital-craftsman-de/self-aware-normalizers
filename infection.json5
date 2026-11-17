@@ -131,8 +131,6 @@
     },
     "CastBool": {
       "ignore": [
-        // The values are only used as conditions, the cast doesn't change their truthiness
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanNormalizer::isContextSupported",
         // Options without value (InputOption::VALUE_NONE) are always bool
         "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\ListUnplannedClassesCommand::execute"
       ]

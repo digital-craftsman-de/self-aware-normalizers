@@ -563,13 +563,58 @@ final class PlanNormalizerTest extends KernelTestCase
             [AbstractObjectNormalizer::ENABLE_MAX_DEPTH => true],
             [Serializer::EMPTY_ARRAY_AS_OBJECT => true],
             [AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => false],
+            [AbstractObjectNormalizer::SKIP_UNINITIALIZED_VALUES => false],
+            // Not on the allowlist: an option the plan doesn't know (e.g. one of a later version of the serializer) ...
+            ['option_of_a_later_version' => false],
+            ['option_of_a_later_version' => null],
+            // ... and the options of the circular reference handling, which the plan doesn't implement
+            [AbstractNormalizer::CIRCULAR_REFERENCE_HANDLER => static fn (): null => null],
+            [AbstractNormalizer::CIRCULAR_REFERENCE_LIMIT => 2],
+            // Options with an accepted value only with exactly that value
+            [AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => 1],
+            [AbstractObjectNormalizer::ENABLE_TYPE_CONVERSION => 0],
+            // Unknown together with known options
+            ['deserialization_path' => 'leaf', 'option_of_a_later_version' => true],
         ];
         $supportedContexts = [
             [],
-            [AbstractObjectNormalizer::ENABLE_TYPE_CONVERSION => false],
-            [AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => true],
             [AbstractObjectNormalizer::SKIP_NULL_VALUES => true],
-            ['deserialization_path' => 'leaf'],
+            [AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true],
+            [AbstractObjectNormalizer::EXCLUDE_FROM_CACHE_KEY => ['option']],
+            // Options with an accepted value, with that value or null (like not set)
+            [AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => true],
+            [AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => null],
+            [AbstractNormalizer::REQUIRE_ALL_PROPERTIES => false],
+            [AbstractNormalizer::FILTER_BOOL => false],
+            [AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => false],
+            [AbstractObjectNormalizer::ENABLE_TYPE_CONVERSION => false],
+            [AbstractObjectNormalizer::DEEP_OBJECT_TO_POPULATE => false],
+            [AbstractObjectNormalizer::ENABLE_MAX_DEPTH => false],
+            [AbstractObjectNormalizer::SKIP_UNINITIALIZED_VALUES => true],
+            [Serializer::EMPTY_ARRAY_AS_OBJECT => false],
+            // Internal options of the serializer and its normalizers
+            [
+                'cache_key' => 'key',
+                'deserialization_path' => 'leaf',
+                'key_type' => null,
+                'value_type' => null,
+                '_read_attributes' => false,
+                'circular_reference_limit_counters' => [],
+                'debug_trace_id' => 'id',
+                'collect_denormalization_errors' => true,
+                'collect_extra_attributes_errors' => true,
+            ],
+            // Options of other normalizers, encoders and decoders
+            [
+                'datetime_format' => 'Y-m-d',
+                'datetime_timezone' => 'UTC',
+                'json_encode_options' => JSON_PRESERVE_ZERO_FRACTION,
+                'json_decode_detailed_errors' => true,
+                'allow_invalid_values' => true,
+                'messenger_serialization' => true,
+                'xml_root_node_name' => 'response',
+                'yaml_inline' => 2,
+            ],
         ];
         $planNormalizerWithUnsupportedDefaultContext = new PlanNormalizer(
             $comparison->planFactory,
@@ -598,6 +643,43 @@ final class PlanNormalizerTest extends KernelTestCase
         self::assertFalse($comparison->planNormalizer->supportsNormalization('Example'));
         self::assertFalse($planNormalizerWithUnsupportedDefaultContext->supportsDenormalization($data, Leaf::class));
         self::assertSame(['object' => false], $comparison->planNormalizer->getSupportedTypes(null));
+    }
+
+    #[Test]
+    public function options_of_the_default_context_are_accepted_like_the_ones_of_the_context(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $data = ['name' => 'Example'];
+
+        // -- Act & Assert
+        // Unknown options make the plan unsupported for every context
+        self::assertFalse(self::planNormalizerWithContextOptions($comparison, ['option_of_a_later_version' => true], [])->supportsDenormalization($data, Leaf::class));
+        self::assertFalse(self::planNormalizerWithContextOptions($comparison, ['option_of_a_later_version' => true], [])->supportsNormalization(new Leaf('Example')));
+        self::assertFalse(self::planNormalizerWithContextOptions($comparison, ['option_of_a_later_version' => true, 'deserialization_path' => 'leaf'], [])->supportsDenormalization($data, Leaf::class));
+        self::assertFalse(self::planNormalizerWithContextOptions($comparison, ['deserialization_path' => 'leaf', 'option_of_a_later_version' => true], [])->supportsDenormalization($data, Leaf::class));
+        // Known options are accepted, the ones with an accepted value with that value or null
+        self::assertTrue(self::planNormalizerWithContextOptions($comparison, ['datetime_format' => 'Y-m-d', AbstractNormalizer::FILTER_BOOL => false], [])->supportsDenormalization($data, Leaf::class));
+        self::assertTrue(self::planNormalizerWithContextOptions($comparison, [AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => null], [])->supportsDenormalization($data, Leaf::class));
+        self::assertTrue(self::planNormalizerWithContextOptions($comparison, [AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => true], [])->supportsDenormalization($data, Leaf::class, null, [AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => null]));
+        // A context option that is null takes the value of the default context
+        self::assertFalse(self::planNormalizerWithContextOptions($comparison, [AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => false], [])->supportsDenormalization($data, Leaf::class, null, [AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => null]));
+        // Configured context keys are accepted in the context and in the default context
+        self::assertTrue(self::planNormalizerWithContextOptions($comparison, ['app_option' => true], ['app_option'])->supportsDenormalization($data, Leaf::class, null, ['app_option' => false]));
+        self::assertTrue(self::planNormalizerWithContextOptions($comparison, [], ['app_option', 'other_app_option'])->supportsNormalization(new Leaf('Example'), null, ['other_app_option' => 1]));
+        self::assertFalse(self::planNormalizerWithContextOptions($comparison, [], ['app_option'])->supportsNormalization(new Leaf('Example'), null, ['other_app_option' => 1]));
+    }
+
+    #[Test]
+    public function only_options_the_plan_implements_and_options_without_accepted_value_are_not_acceptable(): void
+    {
+        // -- Act & Assert
+        self::assertTrue(PlanNormalizer::isContextOptionAcceptable('app_option'));
+        self::assertTrue(PlanNormalizer::isContextOptionAcceptable(AbstractNormalizer::CIRCULAR_REFERENCE_HANDLER));
+        self::assertFalse(PlanNormalizer::isContextOptionAcceptable(AbstractNormalizer::GROUPS));
+        self::assertFalse(PlanNormalizer::isContextOptionAcceptable('_union_member'));
+        self::assertFalse(PlanNormalizer::isContextOptionAcceptable(AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES));
+        self::assertFalse(PlanNormalizer::isContextOptionAcceptable(Serializer::EMPTY_ARRAY_AS_OBJECT));
     }
 
     #[Test]
@@ -828,6 +910,18 @@ final class PlanNormalizerTest extends KernelTestCase
     }
 
     // -- Helpers
+
+    /**
+     * @param array<string, mixed> $defaultContext
+     * @param list<string>         $acceptedContextKeys
+     */
+    private static function planNormalizerWithContextOptions(
+        SerializerComparison $comparison,
+        array $defaultContext,
+        array $acceptedContextKeys = [],
+    ): PlanNormalizer {
+        return new PlanNormalizer($comparison->planFactory, $comparison->planNormalizer, null, 'test', $defaultContext, $acceptedContextKeys);
+    }
 
     private function comparison(): SerializerComparison
     {

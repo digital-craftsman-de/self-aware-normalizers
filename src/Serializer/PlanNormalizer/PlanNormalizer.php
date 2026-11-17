@@ -46,8 +46,10 @@ use Symfony\Component\TypeInfo\Type;
  * and object class resolver, with the same type extractor as the PlanFactory and the same default context (the bundle validates this
  * through the PlanNormalizerCompilerPass). Plans are kept per instance and optionally cached across requests in a PSR-6 pool.
  *
- * The plan mirrors internals of symfony/serializer, symfony/type-info and symfony/property-info, so it may only be used with the
- * audited versions (see AuditedVersions).
+ * The plan mirrors internals of symfony/serializer, symfony/type-info and symfony/property-info. Instead of a version lock, anything it
+ * doesn't know leads to the PropertyNormalizer or fails the container build: context options must be on an allowlist (see
+ * ACCEPTED_CONTEXT_OPTIONS), the constructor arguments of the fallback as well (see PlanNormalizerCompilerPass). What remains is checked
+ * by the equivalence test of the application (PlanNormalizerEquivalenceTestCase) against the installed versions.
  *
  * @psalm-import-type ClassPlan from PlanFactory
  * @psalm-import-type ScalarListSpec from PlanFactory
@@ -63,10 +65,122 @@ final class PlanNormalizer implements NormalizerInterface, DenormalizerInterface
     private const string PLAN_CACHE_KEY_PREFIX = 'plan-v2';
 
     /**
-     * Context options that change the result of the PropertyNormalizer and aren't implemented by the plan. A context containing one of
-     * them is left to the PropertyNormalizer.
+     * Context options the plan is used with, whatever their value (option => true). The plan is only used when every option of the
+     * context and of the default context is one of them, one of CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE (with that value) or one of the
+     * accepted context keys of the configuration. Any other option (e.g. one added by a later version of the serializer) makes the
+     * serializer use the PropertyNormalizer, so an option is never silently ignored. Verified against symfony/serializer 8.1.
      */
-    private const array UNSUPPORTED_CONTEXT_KEYS = [
+    private const array ACCEPTED_CONTEXT_OPTIONS = [
+        // Options of the PropertyNormalizer the plan implements itself (see normalize())
+        AbstractObjectNormalizer::SKIP_NULL_VALUES => true,
+        AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true,
+
+        // Options of the PropertyNormalizer that only change which attributes are cached (the results are the same)
+        AbstractObjectNormalizer::EXCLUDE_FROM_CACHE_KEY => true,
+
+        // Internal options the serializer and its normalizers put into the context during a (de)normalization:
+        // - cache_key: only the key of the attribute cache, the plan removes it before handing values on
+        // - deserialization_path: only the path in exceptions, which are always thrown by the PropertyNormalizer (the plan falls back)
+        // - key_type, value_type (ArrayDenormalizer, validateAndDenormalize()): the types of a collection, only read for collections and
+        //   null data, which the plan doesn't denormalize itself, or set by the plan itself for the collections it hands on
+        // - _read_attributes: set by every object normalizer before it reads it
+        // - circular_reference_limit_counters: counters of the object normalizers the plan is nested in, handed on as is
+        // - debug_trace_id (TraceableSerializer, in debug mode): only used for the profiler
+        'cache_key' => true,
+        'deserialization_path' => true,
+        'key_type' => true,
+        'value_type' => true,
+        '_read_attributes' => true,
+        'circular_reference_limit_counters' => true,
+        'debug_trace_id' => true,
+
+        // Options the serializer replaces with the collectors of the errors (not_normalizable_value_exceptions and
+        // extra_attributes_exceptions, which aren't accepted) before a denormalization. Not read by any normalizer.
+        'collect_denormalization_errors' => true,
+        'collect_extra_attributes_errors' => true,
+
+        // Options of other normalizers. The plan hands the values of other classes on to the serializer with the context as is, like
+        // the PropertyNormalizer, so these normalizers get the same options either way.
+        'datetime_format' => true, // DateTimeNormalizer
+        'datetime_timezone' => true,
+        'datetime_cast' => true,
+        'datetime_force_timezone' => true,
+        'dateinterval_format' => true, // DateIntervalNormalizer
+        'uid_normalization_format' => true, // UidNormalizer
+        'allow_invalid_values' => true, // BackedEnumNormalizer
+        'translatable_normalization_locale' => true, // TranslatableNormalizer
+        'exception' => true, // ProblemNormalizer (ErrorRenderer)
+        'debug' => true,
+        'instance' => true, // ConstraintViolationListNormalizer, ProblemNormalizer, FormErrorNormalizer
+        'payload_fields' => true,
+        'status' => true,
+        'status_code' => true,
+        'title' => true,
+        'type' => true,
+        'require_snake_case_properties' => true, // Name converters, the fallback has none
+        'require_camel_case_properties' => true,
+        'messenger_serialization' => true, // Serializer of symfony/messenger, only a marker
+
+        // Options of the encoders and decoders, which are part of the context of the (de)normalization of serialize() and
+        // deserialize(). Not read by any normalizer.
+        'json_encode_options' => true, // JsonEncode
+        'json_decode_associative' => true, // JsonDecode
+        'json_decode_detailed_errors' => true,
+        'json_decode_options' => true,
+        'json_decode_recursion_depth' => true,
+        'csv_delimiter' => true, // CsvEncoder
+        'csv_enclosure' => true,
+        'csv_key_separator' => true,
+        'csv_headers' => true,
+        'csv_escape_formulas' => true,
+        'csv_end_of_line' => true,
+        'no_headers' => true,
+        'as_collection' => true, // CsvEncoder, XmlEncoder
+        'decoder_ignored_node_types' => true, // XmlEncoder
+        'encoder_ignored_node_types' => true,
+        'xml_encoding' => true,
+        'xml_format_output' => true,
+        'load_options' => true,
+        'save_options' => true,
+        'remove_empty_tags' => true,
+        'xml_root_node_name' => true,
+        'xml_standalone' => true,
+        'xml_type_cast_attributes' => true,
+        'xml_version' => true,
+        'cdata_wrapping' => true,
+        'cdata_wrapping_name_pattern' => true,
+        'cdata_wrapping_pattern' => true,
+        'ignore_empty_attributes' => true,
+        'preserve_numeric_keys' => true,
+        'yaml_indentation' => true, // YamlEncoder (its preserve_empty_objects is the one above)
+        'yaml_inline' => true,
+        'yaml_indent' => true,
+        'yaml_flags' => true,
+    ];
+
+    /**
+     * Options of the PropertyNormalizer the plan is only used with when their effective value (context before default context, null
+     * like not set) is the one that keeps the default behaviour, which the plan implements. Option => accepted value.
+     */
+    private const array CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE = [
+        AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => true,
+        AbstractNormalizer::REQUIRE_ALL_PROPERTIES => false,
+        AbstractNormalizer::FILTER_BOOL => false,
+        AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => false,
+        AbstractObjectNormalizer::ENABLE_TYPE_CONVERSION => false,
+        AbstractObjectNormalizer::DEEP_OBJECT_TO_POPULATE => false,
+        AbstractObjectNormalizer::ENABLE_MAX_DEPTH => false,
+        // The plan only reads objects built through their constructor, whose promoted properties are always initialized
+        AbstractObjectNormalizer::SKIP_UNINITIALIZED_VALUES => true,
+        Serializer::EMPTY_ARRAY_AS_OBJECT => false,
+    ];
+
+    /**
+     * Options the PropertyNormalizer reads that change its result and that the plan doesn't implement. Never accepted, also not through
+     * the accepted context keys of the configuration. Other options that aren't accepted (e.g. the ones of the circular reference
+     * handling, which the plan doesn't implement either) can be accepted there.
+     */
+    public const array NOT_IMPLEMENTED_CONTEXT_OPTIONS = [
         AbstractNormalizer::OBJECT_TO_POPULATE,
         AbstractNormalizer::GROUPS,
         AbstractNormalizer::ATTRIBUTES,
@@ -81,24 +195,6 @@ final class PlanNormalizer implements NormalizerInterface, DenormalizerInterface
         'extra_attributes_exceptions',
         '_union_member',
     ];
-
-    /**
-     * Boolean context options that change the result when they are enabled.
-     */
-    private const array UNSUPPORTED_CONTEXT_FLAGS = [
-        AbstractNormalizer::REQUIRE_ALL_PROPERTIES,
-        AbstractNormalizer::FILTER_BOOL,
-        AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT,
-        AbstractObjectNormalizer::ENABLE_TYPE_CONVERSION,
-        AbstractObjectNormalizer::DEEP_OBJECT_TO_POPULATE,
-        AbstractObjectNormalizer::ENABLE_MAX_DEPTH,
-        Serializer::EMPTY_ARRAY_AS_OBJECT,
-    ];
-
-    /**
-     * Option that changes the result when it's disabled.
-     */
-    private const string ALLOW_EXTRA_ATTRIBUTES = AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES;
 
     private const int NORMALIZATION_VALUE_OBJECT = 1;
     private const int NORMALIZATION_PLANNED = 2;
@@ -127,9 +223,31 @@ final class PlanNormalizer implements NormalizerInterface, DenormalizerInterface
     private array $recursiveClasses = [];
 
     /**
-     * @param string               $planCacheVersion Version of the code (e.g. the build id of the container), part of the cache key, so a
-     *                                               cached plan never outlives the code it was built from
+     * Accepted context options (built-in and configured), option => true.
+     *
+     * @var array<array-key, true>
+     */
+    private readonly array $acceptedContextOptions;
+
+    /**
+     * Whether every option of the default context is known (accepted or with an accepted value).
+     */
+    private readonly bool $isDefaultContextKnown;
+
+    /**
+     * Options of the default context with a value that isn't accepted, which the context must overrule, option => option.
+     *
+     * @var array<string, string>
+     */
+    private readonly array $defaultContextOptionsToOverrule;
+
+    /**
+     * @param string               $planCacheVersion    Version of the code (e.g. the build id of the container), part of the cache key, so a
+     *                                                  cached plan never outlives the code it was built from
      * @param array<string, mixed> $defaultContext
+     * @param list<string>         $acceptedContextKeys Further context options that don't change the result of the PropertyNormalizer
+     *                                                  (guaranteed by the application), e.g. options of its own normalizers. Must be
+     *                                                  acceptable (see isContextOptionAcceptable(), validated by the configuration).
      */
     public function __construct(
         private readonly PlanFactory $planFactory,
@@ -137,7 +255,30 @@ final class PlanNormalizer implements NormalizerInterface, DenormalizerInterface
         private readonly ?CacheItemPoolInterface $planCache,
         private readonly string $planCacheVersion,
         private readonly array $defaultContext = [],
+        private readonly array $acceptedContextKeys = [],
     ) {
+        $this->acceptedContextOptions = self::ACCEPTED_CONTEXT_OPTIONS + array_fill_keys($acceptedContextKeys, true);
+
+        $this->isDefaultContextKnown = array_diff_key($defaultContext, $this->acceptedContextOptions, self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE) === [];
+
+        $defaultContextOptionsToOverrule = [];
+        foreach (array_intersect_key($defaultContext, self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE) as $option => $value) {
+            if ($value !== null
+                && $value !== self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE[$option]
+            ) {
+                $defaultContextOptionsToOverrule[$option] = $option;
+            }
+        }
+        $this->defaultContextOptionsToOverrule = $defaultContextOptionsToOverrule;
+    }
+
+    /**
+     * Whether an option can be accepted through the configuration (see NOT_IMPLEMENTED_CONTEXT_OPTIONS).
+     */
+    public static function isContextOptionAcceptable(string $option): bool
+    {
+        return !in_array($option, self::NOT_IMPLEMENTED_CONTEXT_OPTIONS, true)
+            && !array_key_exists($option, self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE);
     }
 
     /**
@@ -1014,24 +1155,41 @@ final class PlanNormalizer implements NormalizerInterface, DenormalizerInterface
     }
 
     /**
+     * Only contexts whose options are all accepted (see ACCEPTED_CONTEXT_OPTIONS), merged with the default context like by the
+     * PropertyNormalizer: an option of the context overrules the one of the default context, unless it's null.
+     *
      * @param array<string, mixed> $context
      */
     private function isContextSupported(array $context): bool
     {
-        foreach (self::UNSUPPORTED_CONTEXT_KEYS as $key) {
-            if (isset($context[$key])
-                || isset($this->defaultContext[$key])
+        if (!$this->isDefaultContextKnown) {
+            return false;
+        }
+
+        foreach ($context as $option => $value) {
+            if (isset($this->acceptedContextOptions[$option])) {
+                continue;
+            }
+            if (!array_key_exists($option, self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE)) {
+                return false;
+            }
+
+            // Null takes the value of the default context, which is checked below
+            if ($value !== null
+                && $value !== self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE[$option]
             ) {
                 return false;
             }
         }
 
-        foreach (self::UNSUPPORTED_CONTEXT_FLAGS as $key) {
-            if ((bool) ($context[$key] ?? $this->defaultContext[$key] ?? false)) {
+        // Options of the default context without the accepted value must be overruled by the context (with the accepted value, see
+        // above)
+        foreach ($this->defaultContextOptionsToOverrule as $option) {
+            if (!isset($context[$option])) {
                 return false;
             }
         }
 
-        return (bool) ($context[self::ALLOW_EXTRA_ATTRIBUTES] ?? $this->defaultContext[self::ALLOW_EXTRA_ATTRIBUTES] ?? true);
+        return true;
     }
 }

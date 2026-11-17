@@ -18,7 +18,10 @@ use Symfony\Component\Serializer\Normalizer\PropertyNormalizer;
  * - without class metadata factory, name converter, class discriminator resolver and object class resolver (the plan reads no
  *   mapping, converts no names, resolves no discriminator and uses the class of the object),
  * - with a type extractor, which the PlanFactory gets as well (it's taken from the fallback, so both can't differ),
- * - with the same default context as the PlanNormalizer (both get the default context of the serializer bound),
+ * - with the same default context as the PlanNormalizer (both get the default context of the serializer bound, its options are checked
+ *   at runtime against the allowlist of the PlanNormalizer),
+ * - with every other argument of the constructor in its default value: the arguments are an allowlist as well, so an argument added by
+ *   a later version of the serializer fails the build when it's configured, instead of silently changing the result of the fallback,
  * - registered as a normalizer of the serializer with a lower priority than the PlanNormalizer, so the serializer falls back to it for
  *   everything the PlanNormalizer doesn't support.
  *
@@ -32,20 +35,16 @@ final readonly class PlanNormalizerCompilerPass implements CompilerPassInterface
     private const string NORMALIZER_TAG = 'serializer.normalizer';
 
     /**
-     * Arguments of the PropertyNormalizer constructor by position.
+     * Parameters of the PropertyNormalizer constructor (by name) the pass knows. Any other parameter must keep its default value.
      */
-    private const int ARGUMENT_CLASS_METADATA_FACTORY = 0;
-    private const int ARGUMENT_NAME_CONVERTER = 1;
-    private const int ARGUMENT_PROPERTY_TYPE_EXTRACTOR = 2;
-    private const int ARGUMENT_CLASS_DISCRIMINATOR_RESOLVER = 3;
-    private const int ARGUMENT_OBJECT_CLASS_RESOLVER = 4;
-    private const int ARGUMENT_DEFAULT_CONTEXT = 5;
+    private const string PARAMETER_PROPERTY_TYPE_EXTRACTOR = 'propertyTypeExtractor';
+    private const string PARAMETER_DEFAULT_CONTEXT = 'defaultContext';
 
-    private const array ARGUMENTS_THAT_MUST_BE_NULL = [
-        self::ARGUMENT_CLASS_METADATA_FACTORY => 'class metadata factory ($classMetadataFactory)',
-        self::ARGUMENT_NAME_CONVERTER => 'name converter ($nameConverter)',
-        self::ARGUMENT_CLASS_DISCRIMINATOR_RESOLVER => 'class discriminator resolver ($classDiscriminatorResolver)',
-        self::ARGUMENT_OBJECT_CLASS_RESOLVER => 'object class resolver ($objectClassResolver)',
+    private const array PARAMETERS_THAT_MUST_BE_NULL = [
+        'classMetadataFactory' => 'class metadata factory ($classMetadataFactory)',
+        'nameConverter' => 'name converter ($nameConverter)',
+        'classDiscriminatorResolver' => 'class discriminator resolver ($classDiscriminatorResolver)',
+        'objectClassResolver' => 'object class resolver ($objectClassResolver)',
     ];
 
     /**
@@ -54,6 +53,15 @@ final readonly class PlanNormalizerCompilerPass implements CompilerPassInterface
     private const int PLAN_NORMALIZER_ARGUMENT_FALLBACK_NORMALIZER = 1;
     private const int PLAN_NORMALIZER_ARGUMENT_DEFAULT_CONTEXT = 4;
     private const int PLAN_FACTORY_ARGUMENT_PROPERTY_TYPE_EXTRACTOR = 0;
+
+    /**
+     * @param class-string $fallbackClass The class the fallback must be, PropertyNormalizer except in tests (e.g. of a constructor with
+     *                                    parameters the pass doesn't know)
+     */
+    public function __construct(
+        private string $fallbackClass = PropertyNormalizer::class,
+    ) {
+    }
 
     #[\Override]
     public function process(ContainerBuilder $container): void
@@ -73,8 +81,8 @@ final readonly class PlanNormalizerCompilerPass implements CompilerPassInterface
 
         $fallbackDefinition = $container->findDefinition($fallbackId);
         $fallbackClass = $container->getParameterBag()->resolveValue($fallbackDefinition->getClass());
-        if ($fallbackClass !== PropertyNormalizer::class) {
-            throw self::invalidFallback($fallbackId, sprintf('It must be a %s, but is %s.', PropertyNormalizer::class, is_string($fallbackClass) ? $fallbackClass : get_debug_type($fallbackClass)));
+        if ($fallbackClass !== $this->fallbackClass) {
+            throw self::invalidFallback($fallbackId, sprintf('It must be a %s (not a subclass), but is %s.', $this->fallbackClass, is_string($fallbackClass) ? $fallbackClass : get_debug_type($fallbackClass)));
         }
         if ($fallbackDefinition->getFactory() !== null
             || $fallbackDefinition->getMethodCalls() !== []
@@ -82,14 +90,16 @@ final readonly class PlanNormalizerCompilerPass implements CompilerPassInterface
             throw self::invalidFallback($fallbackId, 'It must be built through its constructor only (no factory, no method calls).');
         }
 
-        $fallbackArguments = $fallbackDefinition->getArguments();
-        foreach (self::ARGUMENTS_THAT_MUST_BE_NULL as $position => $description) {
-            if (($fallbackArguments[$position] ?? null) !== null) {
+        $fallbackArguments = self::argumentsByParameterName($fallbackId, $this->fallbackClass, $fallbackDefinition->getArguments());
+        foreach (self::PARAMETERS_THAT_MUST_BE_NULL as $parameterName => $description) {
+            if (($fallbackArguments[$parameterName] ?? null) !== null) {
                 throw self::invalidFallback($fallbackId, sprintf('It must be built without %s, as the plan normalizer does not support it. Set the argument to null explicitly (an autowired service otherwise gets it injected).', $description));
             }
         }
 
-        $propertyTypeExtractor = $fallbackArguments[self::ARGUMENT_PROPERTY_TYPE_EXTRACTOR] ?? null;
+        self::validateUnknownArguments($fallbackId, $this->fallbackClass, $fallbackArguments, $container);
+
+        $propertyTypeExtractor = $fallbackArguments[self::PARAMETER_PROPERTY_TYPE_EXTRACTOR] ?? null;
         if (!$propertyTypeExtractor instanceof Reference
             && !$propertyTypeExtractor instanceof Definition
         ) {
@@ -113,9 +123,77 @@ final readonly class PlanNormalizerCompilerPass implements CompilerPassInterface
 
         $planNormalizerArguments = $planNormalizerDefinition->getArguments();
         $planNormalizerDefaultContext = $planNormalizerArguments[self::PLAN_NORMALIZER_ARGUMENT_DEFAULT_CONTEXT] ?? [];
-        $fallbackDefaultContext = $fallbackArguments[self::ARGUMENT_DEFAULT_CONTEXT] ?? [];
+        $fallbackDefaultContext = $fallbackArguments[self::PARAMETER_DEFAULT_CONTEXT] ?? [];
         if ($container->getParameterBag()->resolveValue($planNormalizerDefaultContext) != $container->getParameterBag()->resolveValue($fallbackDefaultContext)) {
             throw self::invalidFallback($fallbackId, 'It must have the same default context as the plan normalizer, which gets the default context of the serializer. Don\'t set $defaultContext on the fallback.');
+        }
+    }
+
+    /**
+     * The configured arguments of the fallback by the name of their constructor parameter. The arguments are resolved to positions at
+     * this point (named arguments are resolved by the ResolveNamedArgumentsPass), names are supported as well.
+     *
+     * @param class-string            $fallbackClass
+     * @param array<array-key, mixed> $arguments
+     *
+     * @return array<string, mixed>
+     */
+    private static function argumentsByParameterName(
+        string $fallbackId,
+        string $fallbackClass,
+        array $arguments,
+    ): array {
+        $parameterNames = array_map(
+            static fn (\ReflectionParameter $parameter): string => $parameter->getName(),
+            new \ReflectionMethod($fallbackClass, '__construct')->getParameters(),
+        );
+
+        $argumentsByParameterName = [];
+        foreach ($arguments as $key => $argument) {
+            $parameterName = is_int($key)
+                ? $parameterNames[$key] ?? null
+                : ltrim($key, '$');
+            if ($parameterName === null
+                || !in_array($parameterName, $parameterNames, true)
+            ) {
+                throw self::invalidFallback($fallbackId, sprintf('Its constructor has no parameter for the argument %s.', is_int($key) ? sprintf('at position %d', $key) : $key));
+            }
+
+            /** @psalm-suppress MixedAssignment */
+            $argumentsByParameterName[$parameterName] = $argument;
+        }
+
+        return $argumentsByParameterName;
+    }
+
+    /**
+     * Parameters of the constructor the pass doesn't know (e.g. added by a later version of the serializer) must keep their default
+     * value, as they could change the result of the fallback in a way the plan doesn't implement.
+     *
+     * @param class-string         $fallbackClass
+     * @param array<string, mixed> $arguments
+     */
+    private static function validateUnknownArguments(
+        string $fallbackId,
+        string $fallbackClass,
+        array $arguments,
+        ContainerBuilder $container,
+    ): void {
+        foreach (new \ReflectionMethod($fallbackClass, '__construct')->getParameters() as $parameter) {
+            $parameterName = $parameter->getName();
+            if (isset(self::PARAMETERS_THAT_MUST_BE_NULL[$parameterName])
+                || $parameterName === self::PARAMETER_PROPERTY_TYPE_EXTRACTOR
+                || $parameterName === self::PARAMETER_DEFAULT_CONTEXT
+                || !array_key_exists($parameterName, $arguments)
+            ) {
+                continue;
+            }
+
+            if (!$parameter->isDefaultValueAvailable()
+                || $container->getParameterBag()->resolveValue($arguments[$parameterName]) !== $parameter->getDefaultValue()
+            ) {
+                throw self::invalidFallback($fallbackId, sprintf('The argument $%s of its constructor is not known to the plan normalizer, so it must keep its default value. Remove the argument or disable the plan normalizer.', $parameterName));
+            }
         }
     }
 

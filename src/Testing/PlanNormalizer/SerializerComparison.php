@@ -47,6 +47,12 @@ final readonly class SerializerComparison
          */
         public array $defaultContext,
         /**
+         * Accepted context keys of the configured PlanNormalizer.
+         *
+         * @var list<string>
+         */
+        public array $acceptedContextKeys,
+        /**
          * @var list<NormalizerInterface|DenormalizerInterface>
          */
         private array $normalizers,
@@ -56,14 +62,16 @@ final readonly class SerializerComparison
     /**
      * Serializer like the configured one, with another PlanNormalizer.
      *
-     * @param \Closure(PlanFactory, array<string, mixed>): PlanNormalizer $createPlanNormalizer
+     * @param \Closure(PlanFactory, array<string, mixed>, list<string>): PlanNormalizer $createPlanNormalizer Gets the plan factory, the
+     *                                                                                                        default context and the accepted
+     *                                                                                                        context keys of the configured one
      */
     public function serializerWith(\Closure $createPlanNormalizer): Serializer
     {
         return new Serializer(
             array_map(
                 fn (NormalizerInterface | DenormalizerInterface $normalizer): NormalizerInterface | DenormalizerInterface => $normalizer instanceof PlanNormalizer
-                    ? $createPlanNormalizer($this->planFactory, $this->defaultContext)
+                    ? $createPlanNormalizer($this->planFactory, $this->defaultContext, $this->acceptedContextKeys)
                     : clone $normalizer,
                 $this->normalizers,
             ),
@@ -108,6 +116,10 @@ final readonly class SerializerComparison
          * @var PlanFactory $planFactory
          */
         $planFactory = new \ReflectionProperty(PlanNormalizer::class, 'planFactory')->getValue($planNormalizer);
+        /**
+         * @var list<string> $acceptedContextKeys
+         */
+        $acceptedContextKeys = new \ReflectionProperty(PlanNormalizer::class, 'acceptedContextKeys')->getValue($planNormalizer);
 
         $reference = new Serializer(
             array_values(array_map(
@@ -124,7 +136,7 @@ final readonly class SerializerComparison
         $planOnly = new Serializer(
             array_map(
                 static fn (NormalizerInterface | DenormalizerInterface $normalizer): NormalizerInterface | DenormalizerInterface => $normalizer instanceof PlanNormalizer
-                    ? new PlanNormalizer($planFactory, self::throwingFallback(), null, 'test', $defaultContext)
+                    ? new PlanNormalizer($planFactory, self::throwingFallback(), null, 'test', $defaultContext, $acceptedContextKeys)
                     : clone $normalizer,
                 $normalizers,
             ),
@@ -132,7 +144,7 @@ final readonly class SerializerComparison
             $defaultContext,
         );
 
-        return new self($serializer, $reference, $planOnly, $planNormalizer, $planFactory, $defaultContext, $normalizers);
+        return new self($serializer, $reference, $planOnly, $planNormalizer, $planFactory, $defaultContext, $acceptedContextKeys, $normalizers);
     }
 
     /**
@@ -145,7 +157,7 @@ final readonly class SerializerComparison
         CacheItemPoolInterface $planCache,
         array $classes,
     ): Serializer {
-        $writingPlanNormalizer = new PlanNormalizer($this->planFactory, $this->planNormalizer, $planCache, 'test', $this->defaultContext);
+        $writingPlanNormalizer = new PlanNormalizer($this->planFactory, $this->planNormalizer, $planCache, 'test', $this->defaultContext, $this->acceptedContextKeys);
         foreach ($classes as $class) {
             $writingPlanNormalizer->supportsDenormalization([], $class);
         }
@@ -153,12 +165,13 @@ final readonly class SerializerComparison
         $readingPlanFactory = $this->planFactory->withPropertyTypeExtractor(new ThrowingPropertyTypeExtractor());
 
         return $this->serializerWith(
-            fn (PlanFactory $planFactory, array $defaultContext): PlanNormalizer => new PlanNormalizer(
+            fn (PlanFactory $planFactory, array $defaultContext, array $acceptedContextKeys): PlanNormalizer => new PlanNormalizer(
                 $readingPlanFactory,
                 $this->planNormalizer,
                 $planCache,
                 'test',
                 $defaultContext,
+                $acceptedContextKeys,
             ),
         );
     }

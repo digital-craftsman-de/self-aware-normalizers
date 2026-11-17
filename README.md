@@ -251,11 +251,17 @@ The result is exactly the one of the `PropertyNormalizer`:
 
 ### Requirements
 
-The plan normalizer mirrors internals of `symfony/serializer`, `symfony/type-info` and `symfony/property-info` (e.g. `AbstractObjectNormalizer::denormalizeParameter()`, the `ArrayDenormalizer` and the context options). It's only enabled for the versions it was audited against, currently **8.1**. With any other version, building the container fails with an explanation. The rest of the bundle supports all versions of the [installation](#installation).
+The plan normalizer mirrors internals of `symfony/serializer`, `symfony/type-info` and `symfony/property-info` (e.g. `AbstractObjectNormalizer::denormalizeParameter()`, the `ArrayDenormalizer` and the context options). There is no version lock. Instead, anything it doesn't know leads to the `PropertyNormalizer` or fails the build, and your equivalence test checks the rest against the versions you have installed:
+
+- **Context options are an allowlist.** The plan is only used when every option of the context and of the default context of the serializer is one it was verified against: the options it implements itself (`skip_null_values`, `preserve_empty_objects`), the options of the `PropertyNormalizer` only with the value that keeps its default behaviour (e.g. `allow_extra_attributes: true`, `enable_type_conversion: false`), the internal options of the serializer (e.g. `deserialization_path`, `cache_key`, `key_type` / `value_type`) and the options of other normalizers, encoders and decoders, which the plan hands on unchanged (e.g. `datetime_format`, `json_encode_options`). Any other option, e.g. one added by a later version of the serializer, makes the serializer use the `PropertyNormalizer`. Options of your own can be accepted through `accepted_context_keys`.
+- **The constructor arguments of the fallback are an allowlist.** The fallback must be exactly the `PropertyNormalizer` (see [Setup](#setup)), and every other argument of its constructor must keep its default value. An argument added by a later version that is configured fails the container build.
+- **The equivalence test of your application is required.** It compares the plan normalizer with the `PropertyNormalizer` for every planned class of your application with the installed versions (see [Equivalence test for your application](#equivalence-test-for-your-application)). Run it, together with the list command with `--fail-on-unplanned`, in your test suite, especially after updating Symfony. Don't use the plan normalizer without it.
+
+The bundle itself runs its tests against the next version of Symfony in CI as well.
 
 ### Setup
 
-The fallback is a `PropertyNormalizer` without serializer mapping, registered by the application. The plan normalizer is only equivalent to it when it's built without class metadata factory, name converter, class discriminator resolver and object class resolver. The bundle validates that when the container is built (and fails with an explanation otherwise). It also gives the plan normalizer the type extractor and the default context of the fallback, so both always resolve the same types.
+The fallback is a `PropertyNormalizer` without serializer mapping, registered by the application. The plan normalizer is only equivalent to it when it's built without class metadata factory, name converter, class discriminator resolver and object class resolver, and with every other argument but the type extractor and the default context in its default value. The bundle validates that when the container is built (and fails with an explanation otherwise). It also gives the plan normalizer the type extractor and the default context of the fallback, so both always resolve the same types.
 
 ```yaml
 # config/services.yaml
@@ -310,6 +316,10 @@ return App::config([
             'accepted_unplanned_classes' => [
                 'App\ReadModel\TreeNode' => 'References itself',
             ],
+            // Context keys of your own that don't change the result of the PropertyNormalizer. Optional.
+            'accepted_context_keys' => [
+                'app_response_locale',
+            ],
             // Classes listed by the list command
             'source_directories' => [
                 '%kernel.project_dir%/src',
@@ -330,6 +340,7 @@ return App::config([
 | `supported_class_name_pattern` | `null` | Regular expression matched against the fully qualified class name. |
 | `supported_parent_types` | `[]` | Interfaces or parent classes. A class is in scope when it matches the pattern or extends / implements one of them. At least one of both is required. Exceptions are never in scope. |
 | `accepted_unplanned_classes` | `[]` | Class => reason. Only used by the list command. |
+| `accepted_context_keys` | `[]` | Further context keys the plan normalizer is used with (see [Requirements](#requirements)). Only for options of your own that don't change the result of the `PropertyNormalizer`, e.g. options of your own normalizers. Options the plan doesn't implement (e.g. `groups`) or only accepts with a specific value (e.g. `allow_extra_attributes`) can't be accepted. |
 | `source_directories` | `[]` | Directories scanned by the list command (recursively). |
 | `plan_cache_pool` | `null` | Service id of a PSR-6 pool. Without it (or when the service doesn't exist), plans are only kept per instance. |
 | `fallback_normalizer` | `serializer.normalizer.property_normalizer` | Service id of the `PropertyNormalizer` to fall back to. |
@@ -371,7 +382,7 @@ A class gets a plan when it has a public constructor whose parameters are exactl
 - Collections that aren't arrays (e.g. `iterable` or a collection class) and unsupported types like `object` or object shapes.
 - Classes referencing themselves (directly or through other classes), as invalid data deep down would fall back on every level.
 - Classes with a mutable (not `readonly`) property are only denormalized through their plan, the normalization falls back.
-- Contexts with options the plan doesn't implement (e.g. `groups`, `attributes`, `object_to_populate`, `callbacks`, `enable_max_depth`, `disable_type_enforcement`, collecting denormalization errors, `allow_extra_attributes: false`) and the formats XML and CSV (which enable the type conversion) always go to the `PropertyNormalizer`.
+- Contexts with options the plan doesn't implement (e.g. `groups`, `attributes`, `object_to_populate`, `callbacks`, `enable_max_depth`, `disable_type_enforcement`, `circular_reference_handler`, collecting denormalization errors, `allow_extra_attributes: false`) or doesn't know (see [Requirements](#requirements)) and the formats XML and CSV (which enable the type conversion) always go to the `PropertyNormalizer`.
 
 As the fallback is built without class metadata factory, **serializer mapping is ignored** for all classes handled by it or by the plan normalizer: attributes like `#[Groups]`, `#[SerializedName]` or `#[Ignore]` and XML/YAML mapping files. The test case `SerializerMappingIsNotUsedTestCase` (see below) fails when they are used.
 
