@@ -41,6 +41,16 @@ final class FallbackIsRequired extends \RuntimeException
         return new self(sprintf('%s expected, %s given', $expectedType, get_debug_type($value)));
     }
 
+    public static function notAList(): self
+    {
+        return new self('an array that is not a list for a list');
+    }
+
+    public static function elementsOfUnion(): self
+    {
+        return new self('the elements of a union with other members than scalars are not planned');
+    }
+
     public static function invalidKey(int | string $key): self
     {
         return new self(sprintf('key %s of the wrong type', get_debug_type($key)));

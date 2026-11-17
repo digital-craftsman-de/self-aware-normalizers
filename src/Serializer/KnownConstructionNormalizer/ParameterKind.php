@@ -82,6 +82,20 @@ final readonly class ParameterKind
     public const int OBJECT_LIST = 17;
 
     /**
+     * Collection (one level) whose element type is a union of scalars (e.g. list<int|string>), elements kept as they are when they have
+     * the type of a member. Like symfony/serializer 8.2, which validates every element against the union (8.1 kept any array as is).
+     * Target class: null. Extra: list{list of the scalar kinds of the members, whether null is allowed, KeyCheck}.
+     */
+    public const int SCALAR_UNION_LIST = 18;
+
+    /**
+     * Collection whose element type is a union with other members than scalars (e.g. list<A|B>). symfony/serializer 8.1 keeps the array
+     * as is, 8.2 denormalizes every element against the union. Only an empty array is the same for both, any other value falls back.
+     * Target class: null. Extra: null.
+     */
+    public const int UNION_LIST = 19;
+
+    /**
      * Whether the values of the kind are self-aware value objects the plan handles inline (single or in a list).
      */
     public static function isValueObject(int $kind): bool

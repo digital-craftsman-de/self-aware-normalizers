@@ -65,7 +65,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
     /**
      * Version of the plan structure, part of the cache key (together with the version of the code, see the constructor).
      */
-    private const string PLAN_CACHE_KEY_PREFIX = 'plan-v2';
+    private const string PLAN_CACHE_KEY_PREFIX = 'plan-v3';
 
     /**
      * Context options the plan is used with, whatever their value (option => true). The plan is only used when every option of the
@@ -381,7 +381,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         array $context,
     ): object {
         $arguments = [];
-        foreach ($plan['parameters'] as [$name, $kind, $targetClass, $allowsNull, $hasDefault, $default, $extra]) {
+        foreach ($plan['parameters'] as [$name, $kind, $targetClass, $allowsNull, $hasDefault, $default, $extra, $isList]) {
             if (!array_key_exists($name, $data)) {
                 // Same order as AbstractNormalizer::instantiateObject(): default value, then null for a nullable parameter
                 if ($hasDefault) {
@@ -404,6 +404,14 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
                 }
 
                 throw Exception\FallbackIsRequired::nullForNonNullableParameter()->at($class, $name);
+            }
+
+            // symfony/serializer 8.2 deprecates an array that isn't a list for a list, 8.1 accepts it: left to the PropertyNormalizer
+            if ($isList
+                && is_array($value)
+                && !array_is_list($value)
+            ) {
+                throw Exception\FallbackIsRequired::notAList()->at($class, $name);
             }
 
             /**
@@ -457,6 +465,15 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
                          */
                         ? $this->buildNestedList($value, $targetClass, $extra, $isIntCastToFloat, $format, $context)
                         : throw Exception\FallbackIsRequired::unexpectedValue('array', $value),
+                    ParameterKind::SCALAR_UNION_LIST => is_array($value)
+                        /**
+                         * @var list{0: list<int>, 1: bool, 2: int} $extra
+                         */
+                        ? self::validateScalarUnionList($value, $extra[0], $extra[1], $extra[2], $isIntCastToFloat)
+                        : throw Exception\FallbackIsRequired::unexpectedValue('array', $value),
+                    ParameterKind::UNION_LIST => $value === []
+                        ? $value
+                        : throw Exception\FallbackIsRequired::elementsOfUnion(),
                     ParameterKind::OBJECT_LIST => is_array($value)
                         /**
                          * @var list{0: Type, 1: Type, 2: string} $extra
@@ -753,7 +770,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         array $spec,
         bool $isIntCastToFloat,
     ): mixed {
-        [$kind, $isNullable, $innerSpec] = $spec;
+        [$kind, $isNullable, $innerSpec, $isList] = $spec;
         if ($element === null) {
             return $isNullable
                 ? null
@@ -775,9 +792,77 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
                 /**
                  * @var ScalarListSpec $innerSpec
                  */
-                ? self::validateScalarList($element, $innerSpec, $isIntCastToFloat)
+                ? self::validateScalarList(self::listOrFallback($element, $isList), $innerSpec, $isIntCastToFloat)
                 : throw Exception\FallbackIsRequired::unexpectedValue('array', $element),
         };
+    }
+
+    /**
+     * A nested level of a collection that is typed as list must be a list (see the check of the parameter in build()).
+     *
+     * @param array<array-key, mixed> $data
+     *
+     * @return array<array-key, mixed>
+     *
+     * @throws Exception\FallbackIsRequired
+     */
+    private static function listOrFallback(
+        array $data,
+        bool $isList,
+    ): array {
+        if ($isList
+            && !array_is_list($data)
+        ) {
+            throw Exception\FallbackIsRequired::notAList();
+        }
+
+        return $data;
+    }
+
+    /**
+     * Like symfony/serializer 8.2 for a collection of a union of scalars: every key must match the key type, every element must have the
+     * type of a member (null only for a nullable element type). An int for a union with float but without int may be converted, which is
+     * left to the PropertyNormalizer.
+     *
+     * @param array<array-key, mixed> $data
+     * @param list<int>               $kinds
+     *
+     * @return array<array-key, mixed>
+     *
+     * @throws Exception\FallbackIsRequired
+     */
+    private static function validateScalarUnionList(
+        array $data,
+        array $kinds,
+        bool $isNullable,
+        int $keyCheck,
+        bool $isIntCastToFloat,
+    ): array {
+        foreach ($data as $key => $element) {
+            self::validateKey($key, $keyCheck);
+
+            $kind = match (true) {
+                is_string($element) => ParameterKind::STRING,
+                is_int($element) => ParameterKind::INT,
+                is_float($element) => ParameterKind::FLOAT,
+                is_bool($element) => ParameterKind::BOOL,
+                default => null,
+            };
+            $isValid = $kind === null
+                ? $element === null && $isNullable
+                : in_array($kind, $kinds, true);
+            if (!$isValid
+                || (
+                    $kind === ParameterKind::INT
+                    && $isIntCastToFloat
+                    && in_array(ParameterKind::FLOAT, $kinds, true)
+                )
+            ) {
+                throw Exception\FallbackIsRequired::unexpectedValue('an element of the union', $element);
+            }
+        }
+
+        return $data;
     }
 
     /**

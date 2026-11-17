@@ -54,10 +54,15 @@ use Symfony\Component\TypeInfo\TypeResolver\ReflectionTypeResolver;
  *   0: int,
  *   1: bool,
  *   2: mixed,
+ *   3: bool,
  * }
  * @psalm-type ParameterExtra = null|bool|ScalarListSpec|non-empty-list<int>|list{
  *   0: int,
  *   1: int,
+ * }|list{
+ *   0: list<int>,
+ *   1: bool,
+ *   2: int,
  * }|list{
  *   0: Type,
  *   1: Type,
@@ -71,6 +76,7 @@ use Symfony\Component\TypeInfo\TypeResolver\ReflectionTypeResolver;
  *   4: bool,
  *   5: mixed,
  *   6: mixed,
+ *   7: bool,
  * }
  * @psalm-type ClassPlan = array{
  *   parameters: list<ParameterPlan>,
@@ -322,6 +328,14 @@ final readonly class PlanFactory
 
         [$kind, $targetClass, $extra] = $classification;
 
+        // symfony/serializer 8.2 deprecates (9.0 rejects) an array that isn't a list for a property typed as list, 8.1 accepts it. The
+        // plan leaves such data to the PropertyNormalizer, whatever the version.
+        $collectionType = $type instanceof NullableType
+            ? $type->getWrappedType()
+            : $type;
+        $isList = $collectionType instanceof CollectionType
+            && $collectionType->isList();
+
         return [
             $parameter->name,
             $kind,
@@ -330,6 +344,7 @@ final readonly class PlanFactory
             $hasDefault,
             $default,
             $extra,
+            $isList,
         ];
     }
 
@@ -491,6 +506,11 @@ final readonly class PlanFactory
             $valueBaseType = $valueBaseType->getWrappedType();
         }
 
+        // An element type that is a real union is denormalized element by element by symfony/serializer 8.2 (and kept as is by 8.1)
+        if ($valueBaseType instanceof UnionType) {
+            return self::classifyUnionElements($valueBaseType, $valueType->isNullable(), $keyType);
+        }
+
         if (self::hasScalarElements($valueBaseType, $valueType)) {
             $scalarListSpec = self::scalarListSpec($valueType);
 
@@ -542,6 +562,36 @@ final readonly class PlanFactory
 
         // Any other element type isn't validated by the PropertyNormalizer, the value only has to be an array
         return [ParameterKind::ARRAY, null, null];
+    }
+
+    /**
+     * Elements of a union type: a union of scalars is validated element by element (and the keys checked like symfony/serializer 8.2
+     * does it), any other union falls back unless the collection is empty.
+     *
+     * @return list{
+     *   0: int,
+     *   1: ?class-string,
+     *   2: ParameterExtra,
+     * }
+     *
+     * @throws Exception\TypeCanNotBePlanned
+     */
+    private static function classifyUnionElements(
+        UnionType $unionType,
+        bool $isNullable,
+        Type $keyType,
+    ): array {
+        $kinds = [];
+        foreach ($unionType->getTypes() as $memberType) {
+            $kind = self::KINDS_OF_SCALAR_TYPES[(string) $memberType] ?? null;
+            if ($kind === null) {
+                return [ParameterKind::UNION_LIST, null, null];
+            }
+
+            $kinds[] = $kind;
+        }
+
+        return [ParameterKind::SCALAR_UNION_LIST, null, [$kinds, $isNullable, self::keyCheck($keyType)]];
     }
 
     /**
@@ -686,7 +736,7 @@ final readonly class PlanFactory
 
     /**
      * Element spec of a collection of scalars: [kind of the element (scalar kind or SCALAR_LIST), whether null is allowed, spec of the
-     * elements of a nested collection].
+     * elements of a nested collection, whether the nested collection is a list].
      *
      * @return ScalarListSpec|null
      */
@@ -703,7 +753,7 @@ final readonly class PlanFactory
             $innerSpec = self::scalarListSpec($type->getCollectionValueType());
 
             return $innerSpec !== null
-                ? [ParameterKind::SCALAR_LIST, $isNullable, $innerSpec]
+                ? [ParameterKind::SCALAR_LIST, $isNullable, $innerSpec, $type->isList()]
                 : null;
         }
 
@@ -711,7 +761,7 @@ final readonly class PlanFactory
         $kind = self::KINDS_OF_SCALAR_TYPES[(string) $type] ?? null;
 
         return $kind !== null
-            ? [$kind, $isNullable, null]
+            ? [$kind, $isNullable, null, false]
             : null;
     }
 }

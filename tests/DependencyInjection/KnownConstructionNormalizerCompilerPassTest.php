@@ -105,7 +105,7 @@ final class KnownConstructionNormalizerCompilerPassTest extends TestCase
         $buildId = $container->getParameter('container.build_id');
         self::assertIsString($buildId);
         self::assertSame($buildId, new \ReflectionProperty(KnownConstructionNormalizer::class, 'planCacheVersion')->getValue($comparison->knownConstructionNormalizer));
-        self::assertTrue($planCache->hasItem(sprintf('plan-v2.%s.%s', $buildId, strtr(Leaf::class, '\\', '.'))));
+        self::assertTrue($planCache->hasItem(sprintf('plan-v3.%s.%s', $buildId, strtr(Leaf::class, '\\', '.'))));
     }
 
     #[Test]

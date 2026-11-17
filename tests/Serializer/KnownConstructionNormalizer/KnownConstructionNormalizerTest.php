@@ -53,6 +53,7 @@ use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixtu
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\StrictName;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Weight;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\NullPropertyTypeExtractor;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Union\UnionLists;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -69,6 +70,7 @@ use Symfony\Component\Serializer\Serializer;
 
 require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Fixture/ReadModel/fixtures.php';
 require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Chain/fixtures.php';
+require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Union/fixtures.php';
 
 /**
  * Shapes, contexts and the plan cache of the KnownConstructionNormalizer with the fixture classes (Fixture/ReadModel/fixtures.php). Like
@@ -681,6 +683,50 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
         self::assertFalse(KnownConstructionNormalizer::isContextOptionAcceptable('_union_member'));
         self::assertFalse(KnownConstructionNormalizer::isContextOptionAcceptable(AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES));
         self::assertFalse(KnownConstructionNormalizer::isContextOptionAcceptable(Serializer::EMPTY_ARRAY_AS_OBJECT));
+    }
+
+    /**
+     * symfony/serializer 8.2 validates the elements of a union element type and deprecates arrays that aren't lists for lists, 8.1 keeps
+     * them as they are. The plan only handles the data on which both agree, everything else falls back.
+     */
+    #[Test]
+    public function collections_that_symfony_8_2_handles_differently_fall_back(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $valid = [
+            'ids' => [1, 'two'],
+            'flagsByName' => ['first' => 1.5, 'second' => true, 'third' => null],
+            'leavesOrCounts' => [],
+            'namesByPosition' => [7 => 'Seven'],
+            'matrix' => [[1, 2], [3]],
+        ];
+        $fallingBack = [
+            'not a list' => ['ids' => [7 => 1]] + $valid,
+            'nested level not a list' => ['matrix' => [[1 => 1]]] + $valid,
+            'element of another type' => ['ids' => [1, ['two']]] + $valid,
+            'null for a non-nullable element' => ['ids' => [1, null]] + $valid,
+            'key of the wrong type' => ['flagsByName' => [7 => true]] + $valid,
+            // An int for a union with float but without int may be converted
+            'int for a union with float' => ['flagsByName' => ['first' => 1]] + $valid,
+            'elements of a union with classes' => ['leavesOrCounts' => [['name' => 'Example']]] + $valid,
+        ];
+
+        // -- Act & Assert
+        foreach ([null, JsonEncoder::FORMAT] as $format) {
+            self::assertSame(
+                SerializerComparison::outcome(static fn () => $comparison->reference->denormalize($valid, UnionLists::class, $format)),
+                SerializerComparison::outcome(static fn () => $comparison->planOnly->denormalize($valid, UnionLists::class, $format)),
+            );
+        }
+        foreach ($fallingBack as $case => $data) {
+            self::assertSame(
+                SerializerComparison::outcome(static fn () => $comparison->reference->denormalize($data, UnionLists::class, JsonEncoder::FORMAT)),
+                SerializerComparison::outcome(static fn () => $comparison->plan->denormalize($data, UnionLists::class, JsonEncoder::FORMAT)),
+                $case,
+            );
+            self::assertSame('exception', SerializerComparison::outcome(static fn () => $comparison->planOnly->denormalize($data, UnionLists::class, JsonEncoder::FORMAT))[0], $case);
+        }
     }
 
     /**
