@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Debug;
 
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Diagnosis\PlanLimitation;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Diagnosis\PlanLimitationReason;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\KnownConstructionNormalizer;
 use Symfony\Bundle\FrameworkBundle\DataCollector\AbstractDataCollector;
@@ -45,6 +46,12 @@ final class KnownConstructionNormalizerDataCollector extends AbstractDataCollect
     private const array SERIALIZER_MAPPING_NAMESPACES = [
         'Symfony\\Component\\Serializer\\Attribute\\',
         'Symfony\\Component\\Serializer\\Annotation\\',
+    ];
+
+    private const array NO_PLANS = [
+        'built' => [],
+        'loadedFromPool' => [],
+        'fromMemory' => [],
     ];
 
     public const string KIND_RUNTIME_FALLBACK = 'runtime fallback';
@@ -97,10 +104,10 @@ final class KnownConstructionNormalizerDataCollector extends AbstractDataCollect
                     }
 
                     $diagnosis = $this->knownConstructionNormalizer->diagnose($class);
+                    /**
+                     * @var PlanLimitation $limitation Recorded as without plan, so there is a limitation (for the normalization at least)
+                     */
                     $limitation = $diagnosis->limitation ?? $diagnosis->normalizationLimitation;
-                    if ($limitation === null) {
-                        continue;
-                    }
 
                     $isClaimed = $limitation->reason === PlanLimitationReason::CLAIMED_BY_OTHER_NORMALIZER;
                     $row = self::row(
@@ -198,11 +205,9 @@ final class KnownConstructionNormalizerDataCollector extends AbstractDataCollect
     private static function serializerMapping(array $classes): array
     {
         $mapping = [];
+        // The serializer only asks the KnownConstructionNormalizer for existing classes and interfaces
+        /** @var class-string $class */
         foreach ($classes as $class) {
-            if (!class_exists($class)) {
-                continue;
-            }
-
             $reflectionClass = new \ReflectionClass($class);
             $members = [
                 'class' => $reflectionClass,
@@ -350,11 +355,7 @@ final class KnownConstructionNormalizerDataCollector extends AbstractDataCollect
     public function getPlans(): array
     {
         /** @var array{built: array<string, float>, loadedFromPool: list<string>, fromMemory: list<string>} */
-        return $this->data['plans'] ?? [
-            'built' => [],
-            'loadedFromPool' => [],
-            'fromMemory' => [],
-        ];
+        return $this->data['plans'] ?? self::NO_PLANS;
     }
 
     /**

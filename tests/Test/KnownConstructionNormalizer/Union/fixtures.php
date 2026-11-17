@@ -98,3 +98,16 @@ final readonly class ScalarUnions
     ) {
     }
 }
+
+/**
+ * A static property isn't part of the shape of the class.
+ */
+final class WithStaticProperty
+{
+    public static string $kind = 'example';
+
+    public function __construct(
+        public readonly string $name,
+    ) {
+    }
+}

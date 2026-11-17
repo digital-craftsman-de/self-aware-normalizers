@@ -84,6 +84,8 @@ require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Union/fixtur
 #[CoversClass(PlanFactory::class)]
 #[CoversClass(Exception\FallbackIsRequired::class)]
 #[CoversClass(Exception\TypeCanNotBePlanned::class)]
+#[CoversClass(Diagnosis\ClassDiagnosis::class)]
+#[CoversClass(Diagnosis\DelegatedParameter::class)]
 final class KnownConstructionNormalizerTest extends KernelTestCase
 {
     #[Test]

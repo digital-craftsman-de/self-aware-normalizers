@@ -14,6 +14,7 @@ use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixtu
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Sample\ArrayWithIntOrIterableDoc;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Sample\ArrayWithIterableDoc;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\NullPropertyTypeExtractor;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Union\WithStaticProperty;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -22,6 +23,7 @@ use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 
 require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Fixture/ReadModel/fixtures.php';
+require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Union/fixtures.php';
 
 /**
  * Limitations the configured KnownConstructionNormalizer can't reach (classes out of its scope, type extractors other than the one of the
@@ -81,6 +83,19 @@ final class PlanFactoryTest extends TestCase
             /** @var class-string $type */
             self::assertEquals(Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::NOT_A_CLASS), $planFactory->diagnose($type, $hasPlan)->limitation, $type);
         }
+    }
+
+    #[Test]
+    public function static_properties_are_no_part_of_the_plan(): void
+    {
+        // -- Arrange
+        $planFactory = new PlanFactory(new PropertyInfoExtractor([], [new PhpDocExtractor(), new ReflectionExtractor()]));
+
+        // -- Act
+        $plan = $planFactory->create(WithStaticProperty::class, static fn (string $class): bool => false);
+
+        // -- Assert
+        self::assertSame(['name'], $plan['properties'] ?? null);
     }
 
     #[Test]

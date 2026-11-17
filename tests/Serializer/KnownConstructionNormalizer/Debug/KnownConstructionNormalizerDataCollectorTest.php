@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Debug;
 
+use DigitalCraftsman\SelfAwareNormalizers\DependencyInjection\KnownConstructionNormalizerCompilerPass;
 use DigitalCraftsman\SelfAwareNormalizers\DependencyInjection\KnownConstructionNormalizerProfilerPass;
 use DigitalCraftsman\SelfAwareNormalizers\DependencyInjection\SelfAwareNormalizersExtension;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Diagnosis\ClassDiagnosis;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Diagnosis\DelegatedParameter;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Diagnosis\PlanLimitationReason;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\KnownConstructionNormalizer;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\ParameterKind;
@@ -22,6 +25,9 @@ use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Profi
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Profiler\LaterDataCollector;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Profiler\MappedReadModel;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\TestKernel;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Union\NativeUnions;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Union\TextElement;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Union\UnionLists;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -45,6 +51,7 @@ use Twig\TwigFunction;
 
 require_once dirname(__DIR__, 3).'/Test/KnownConstructionNormalizer/Fixture/ReadModel/fixtures.php';
 require_once dirname(__DIR__, 3).'/Test/KnownConstructionNormalizer/Chain/fixtures.php';
+require_once dirname(__DIR__, 3).'/Test/KnownConstructionNormalizer/Union/fixtures.php';
 
 /**
  * The profiler panel of the KnownConstructionNormalizer, in a kernel with the profiler like an app in dev.
@@ -55,6 +62,10 @@ require_once dirname(__DIR__, 3).'/Test/KnownConstructionNormalizer/Chain/fixtur
 #[CoversClass(KnownConstructionNormalizer::class)]
 #[CoversClass(PlanLimitationReason::class)]
 #[CoversClass(ParameterKind::class)]
+#[CoversClass(KnownConstructionNormalizerCompilerPass::class)]
+#[CoversClass(SelfAwareNormalizersExtension::class)]
+#[CoversClass(ClassDiagnosis::class)]
+#[CoversClass(DelegatedParameter::class)]
 final class KnownConstructionNormalizerDataCollectorTest extends TestCase
 {
     /**
@@ -380,6 +391,8 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
         // -- Act
         $serializer->normalize(new MappedReadModel('Example', 1));
         $serializer->normalize(new Leaf('Example'));
+        // An interface is looked up as well
+        self::outcome(static fn () => $serializer->denormalize(['name' => 'Example'], \Countable::class));
         $collector->collect(new Request(), new Response());
 
         // -- Assert
@@ -411,6 +424,45 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
         // The classes take the fast path, the mapping alone is a warning
         self::assertSame(0, $collector->getFallbackCount());
         self::assertTrue($collector->hasWarning());
+    }
+
+    #[Test]
+    public function parameters_of_unions_are_shown_as_denormalized_through_the_fallback(): void
+    {
+        // -- Arrange
+        $kernel = $this->bootedKernel('profiler_unions', true);
+        $serializer = self::serializer($kernel);
+        $collector = self::collector($kernel);
+
+        // -- Act
+        $serializer->normalize(new NativeUnions(new TextElement('Text'), 7, null));
+        $serializer->normalize(new UnionLists([], [], [], [], []));
+        $collector->collect(new Request(), new Response());
+
+        // -- Assert
+        self::assertSame(
+            [
+                [
+                    'class' => NativeUnions::class,
+                    'parameter' => 'item',
+                    'type' => 'union',
+                    'reason' => 'union with other members than scalars: denormalized through the fallback when set',
+                ],
+                [
+                    'class' => NativeUnions::class,
+                    'parameter' => 'optional',
+                    'type' => 'union',
+                    'reason' => 'union with other members than scalars: denormalized through the fallback when set',
+                ],
+                [
+                    'class' => UnionLists::class,
+                    'parameter' => 'leavesOrCounts',
+                    'type' => 'union',
+                    'reason' => 'collection of a union with other members than scalars: denormalized through the fallback when not empty',
+                ],
+            ],
+            $collector->getDelegated(),
+        );
     }
 
     #[Test]
