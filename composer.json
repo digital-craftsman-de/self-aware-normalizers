@@ -15,7 +15,13 @@
     "phpunit/phpunit": "^13.4",
     "infection/infection": "^0.35",
     "symfony/property-access": "^7.4|^8.0",
-    "symfony/property-info": "^7.4|^8.0"
+    "symfony/property-info": "^7.4|^8.0",
+    "twig/twig": "^3.21"
+  },
+  "suggest": {
+    "symfony/property-info": "Required for the KnownConstructionNormalizer",
+    "symfony/type-info": "Required for the KnownConstructionNormalizer",
+    "symfony/web-profiler-bundle": "Shows the profiler panel of the KnownConstructionNormalizer in debug mode"
   },
   "autoload": {
     "psr-4": {

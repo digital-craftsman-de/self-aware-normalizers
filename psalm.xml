@@ -20,6 +20,12 @@
     <LessSpecificReturnStatement errorLevel="suppress" />
     <MixedPropertyTypeCoercion errorLevel="suppress" />
     <MoreSpecificImplementedParamType errorLevel="suppress" />
+    <!-- The fixture ArrayTypeMismatch has a wrong PHPDoc type on purpose -->
+    <MismatchingDocblockPropertyType>
+      <errorLevel type="suppress">
+        <file name="tests/Test/KnownConstructionNormalizer/Fixture/ReadModel/fixtures.php" />
+      </errorLevel>
+    </MismatchingDocblockPropertyType>
 
     <MutableDependency errorLevel="info" />
     <ImpureMethodCall errorLevel="info" />
