@@ -35,8 +35,7 @@ use Symfony\Component\TypeInfo\TypeResolver\ReflectionTypeResolver;
  *   the order in which diagnose() checks them only decides the reported reason).
  *
  * Everything else returns null, so the class stays with the PropertyNormalizer. diagnose() returns the reason instead (the first
- * limitation found), for self-aware-normalizers:known-construction-normalizer:list-unplanned; create() is built on it, so the reason is always the
- * one that decided.
+ * limitation found), for the profiler panel; create() is built on it, so the reason is always the one that decided.
  *
  * Plans only contain scalars, arrays and the types of collections of other objects, so they can be cached in a PSR-6 pool.
  *

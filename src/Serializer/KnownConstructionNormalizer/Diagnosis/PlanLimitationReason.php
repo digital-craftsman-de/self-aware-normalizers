@@ -17,8 +17,7 @@ enum PlanLimitationReason: string
     case ABSTRACT_CLASS = 'ABSTRACT_CLASS';
     /**
      * Takes precedence over ENUM and ABSTRACT_CLASS: an enum or abstract class implementing an interface of the self-aware normalizers
-     * is (de)normalized by them, so that's what is reported for it. self-aware-normalizers:known-construction-normalizer:list-unplanned leaves these
-     * classes out completely, as they never reach the KnownConstructionNormalizer.
+     * is (de)normalized by them, so that's what is reported for it. Such classes never reach the KnownConstructionNormalizer.
      */
     case SELF_AWARE_VALUE_OBJECT = 'SELF_AWARE_VALUE_OBJECT';
     case INTERNAL_CLASS = 'INTERNAL_CLASS';
