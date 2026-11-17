@@ -364,7 +364,38 @@ return App::config([
 ]);
 ```
 
-The type extractor of the fallback re-parses the docblocks of every class on every request as well. Wrapping it in a `PropertyInfoCacheExtractor` in production is worth it, too.
+### Cache of the type extractor
+
+The fallback `PropertyNormalizer` (and the `KnownConstructionNormalizer` while it builds a plan) resolve the types of the properties through the type extractor: the `PropertyInfoExtractor` parses the docblocks and the use statements of the source file. Symfony only memoizes the result per process. With PHP-FPM, every request starts with a fresh container, so every involved class and property is parsed again on every request (about 70 to 120 µs each in a real application, about 9 ms on a single authentication request). With the plans cached, the `KnownConstructionNormalizer` only needs it when a plan is built (the first request after a deployment), but it still pays off for every class and value that goes through the fallback.
+
+In production, wrap the type extractor of the [setup](#setup) in a `PropertyInfoCacheExtractor` on a pool of its own. The bundle passes the type extractor of the fallback on to the plans, so both still see the same types:
+
+```yaml
+# config/services.yaml
+when@prod:
+  services:
+    app.property_normalizer_type_extractor.cached:
+      class: Symfony\Component\PropertyInfo\PropertyInfoCacheExtractor
+      decorates: app.property_normalizer_type_extractor
+      autowire: false
+      autoconfigure: false
+      arguments:
+        $propertyInfoExtractor: '@.inner'
+        $cacheItemPool: '@cache.property_normalizer_types'
+
+# config/packages/framework.yaml
+when@prod:
+  framework:
+    cache:
+      pools:
+        cache.property_normalizer_types:
+          adapter: cache.adapter.system
+```
+
+- **Use a pool of its own, not `cache.property_info`.** The `property_info.cache` of the framework writes the same keys for a longer chain of extractors (used by the `ObjectNormalizer`), so both would return each other's results.
+- **Disable autoconfiguration** for the wrapper, otherwise it's tagged into the extractor chains of the framework's `property_info`.
+- **Empty the pool on every deployment.** Unlike the plans, the types aren't cached under the build id of the container, and the pool is filled lazily. Without emptying it (e.g. a system cache directory that is rebuilt per deployment, or clearing the pool when the application starts), changed docblocks keep their old types.
+- **Production only,** so changed docblocks apply right away in `dev` and `test`.
 
 ### Profiler panel
 
