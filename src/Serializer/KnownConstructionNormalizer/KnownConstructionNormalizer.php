@@ -471,6 +471,12 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
                          */
                         ? self::validateScalarUnionList($value, $extra[0], $extra[1], $extra[2], $isIntCastToFloat)
                         : throw Exception\FallbackIsRequired::unexpectedValue('array', $value),
+                    ParameterKind::UNION => $extra !== null
+                        /**
+                         * @var list<int> $extra
+                         */
+                        ? self::validateScalarUnionElement($value, $extra, false, $isIntCastToFloat)
+                        : throw Exception\FallbackIsRequired::union(),
                     ParameterKind::UNION_LIST => $value === []
                         ? $value
                         : throw Exception\FallbackIsRequired::elementsOfUnion(),
@@ -840,29 +846,48 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
     ): array {
         foreach ($data as $key => $element) {
             self::validateKey($key, $keyCheck);
-
-            $kind = match (true) {
-                is_string($element) => ParameterKind::STRING,
-                is_int($element) => ParameterKind::INT,
-                is_float($element) => ParameterKind::FLOAT,
-                is_bool($element) => ParameterKind::BOOL,
-                default => null,
-            };
-            $isValid = $kind === null
-                ? $element === null && $isNullable
-                : in_array($kind, $kinds, true);
-            if (!$isValid
-                || (
-                    $kind === ParameterKind::INT
-                    && $isIntCastToFloat
-                    && in_array(ParameterKind::FLOAT, $kinds, true)
-                )
-            ) {
-                throw Exception\FallbackIsRequired::unexpectedValue('an element of the union', $element);
-            }
+            self::validateScalarUnionElement($element, $kinds, $isNullable, $isIntCastToFloat);
         }
 
         return $data;
+    }
+
+    /**
+     * Like validateAndDenormalize() of the PropertyNormalizer for a union of scalars, which tries the members in order: a value with the
+     * type of a member is kept as is by every order. An int for a union with float may be converted by the float member with the JSON
+     * format (depending on the order of the members), which is left to the PropertyNormalizer.
+     *
+     * @param list<int> $kinds
+     *
+     * @throws Exception\FallbackIsRequired
+     */
+    private static function validateScalarUnionElement(
+        mixed $element,
+        array $kinds,
+        bool $isNullable,
+        bool $isIntCastToFloat,
+    ): mixed {
+        $kind = match (true) {
+            is_string($element) => ParameterKind::STRING,
+            is_int($element) => ParameterKind::INT,
+            is_float($element) => ParameterKind::FLOAT,
+            is_bool($element) => ParameterKind::BOOL,
+            default => null,
+        };
+        $isValid = $kind === null
+            ? $element === null && $isNullable
+            : in_array($kind, $kinds, true);
+        if (!$isValid
+            || (
+                $kind === ParameterKind::INT
+                && $isIntCastToFloat
+                && in_array(ParameterKind::FLOAT, $kinds, true)
+            )
+        ) {
+            throw Exception\FallbackIsRequired::unexpectedValue('a member of the union', $element);
+        }
+
+        return $element;
     }
 
     /**
@@ -1231,7 +1256,16 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
 
         $delegatedParameters = [];
         $valueObjectParameters = [];
+        $fallbackParameters = [];
         foreach ($plan['parameters'] as [$name, $kind, $targetClass, , , , $extra]) {
+            if (($kind === ParameterKind::UNION && $extra === null)
+                || $kind === ParameterKind::UNION_LIST
+            ) {
+                $fallbackParameters[$name] = $kind === ParameterKind::UNION
+                    ? 'union with other members than scalars: denormalized through the fallback when set'
+                    : 'collection of a union with other members than scalars: denormalized through the fallback when not empty';
+            }
+
             if ($targetClass !== null
                 && ParameterKind::isValueObject($kind)
             ) {
@@ -1256,6 +1290,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
             $planDiagnosis->normalizationLimitation,
             $delegatedParameters,
             $valueObjectParameters,
+            $fallbackParameters,
         );
     }
 

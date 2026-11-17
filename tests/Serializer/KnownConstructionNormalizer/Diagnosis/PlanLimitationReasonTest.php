@@ -52,7 +52,6 @@ final class PlanLimitationReasonTest extends TestCase
                 'PARAMETER_HAS_OBJECT_DEFAULT_VALUE' => 'parameter has an object as default value',
                 'PARAMETERS_DIFFER_FROM_PROPERTIES' => 'parameters differ from properties',
                 'TYPE_IS_NOT_RESOLVABLE' => 'type is not resolvable',
-                'UNION_TYPE' => 'union type',
                 'INTERSECTION_TYPE' => 'intersection type',
                 'COLLECTION_IS_NOT_AN_ARRAY' => 'collection is not an array',
                 'UNSUPPORTED_TYPE' => 'unsupported type',

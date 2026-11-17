@@ -142,6 +142,14 @@ final class KnownConstructionNormalizerDataCollector extends AbstractDataCollect
                     'reason' => $this->knownConstructionNormalizer->diagnose($parameter->targetClass)->limitation?->describe() ?? 'planned, but referencing the class itself',
                 ];
             }
+            foreach ($diagnosis->fallbackParameters as $parameter => $reason) {
+                $delegated[] = [
+                    'class' => $class,
+                    'parameter' => $parameter,
+                    'type' => 'union',
+                    'reason' => $reason,
+                ];
+            }
             foreach ($diagnosis->valueObjectParameters as $valueObjectClass) {
                 $valueObjectClasses[$valueObjectClass] = $valueObjectClass;
             }

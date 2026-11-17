@@ -23,6 +23,7 @@ final readonly class ClassDiagnosis
         public ?PlanLimitation $normalizationLimitation,
         public array $delegatedParameters,
         public array $valueObjectParameters = [],
+        public array $fallbackParameters = [],
     ) {
     }
 }

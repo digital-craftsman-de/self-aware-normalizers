@@ -44,7 +44,6 @@ enum PlanLimitationReason: string
 
     // -- Type of a parameter
     case TYPE_IS_NOT_RESOLVABLE = 'TYPE_IS_NOT_RESOLVABLE';
-    case UNION_TYPE = 'UNION_TYPE';
     case INTERSECTION_TYPE = 'INTERSECTION_TYPE';
     case COLLECTION_IS_NOT_AN_ARRAY = 'COLLECTION_IS_NOT_AN_ARRAY';
     case UNSUPPORTED_TYPE = 'UNSUPPORTED_TYPE';
@@ -102,8 +101,7 @@ enum PlanLimitationReason: string
             self::PARAMETER_HAS_OBJECT_DEFAULT_VALUE => 'Use null as default value and create the object in the caller.',
             self::TYPE_IS_NOT_RESOLVABLE,
             self::UNSUPPORTED_TYPE => 'Use a type the plan can express: scalars, arrays, lists of them, value objects and other plannable classes.',
-            self::UNION_TYPE,
-            self::INTERSECTION_TYPE => 'Use a single (nullable) type.',
+            self::INTERSECTION_TYPE => 'Use a single (nullable) type or a union.',
             self::COLLECTION_IS_NOT_AN_ARRAY => 'Use an array (e.g. list<X>) instead of an iterable or a collection class.',
             self::RECURSIVE_CLASS => 'Break the recursion, e.g. by referencing the nested items by id.',
             self::PROPERTY_IS_MUTABLE => 'Make every property readonly (the class is only denormalized through its plan).',
@@ -135,7 +133,6 @@ enum PlanLimitationReason: string
             self::PARAMETER_HAS_OBJECT_DEFAULT_VALUE => 'parameter has an object as default value',
             self::PARAMETERS_DIFFER_FROM_PROPERTIES => 'parameters differ from properties',
             self::TYPE_IS_NOT_RESOLVABLE => 'type is not resolvable',
-            self::UNION_TYPE => 'union type',
             self::INTERSECTION_TYPE => 'intersection type',
             self::COLLECTION_IS_NOT_AN_ARRAY => 'collection is not an array',
             self::UNSUPPORTED_TYPE => 'unsupported type',

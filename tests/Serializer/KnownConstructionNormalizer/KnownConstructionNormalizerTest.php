@@ -42,7 +42,6 @@ use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixtu
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Scalars;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Tree;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\TypeMismatch;
-use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\UnionParameter;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ValueObjects;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\WithSettings;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\WithStrictName;
@@ -53,6 +52,11 @@ use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixtu
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\StrictName;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Weight;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\NullPropertyTypeExtractor;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Union\ImageElement;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Union\NativeUnions;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Union\ScalarUnions;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Union\TextElement;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Union\UnionElements;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Union\UnionLists;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -469,7 +473,6 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
             Inherited::class,
             ParameterWithoutProperty::class,
             AdditionalParameter::class,
-            UnionParameter::class,
             IntersectionParameter::class,
             DefaultObject::class,
             NoProperties::class,
@@ -727,6 +730,106 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
             );
             self::assertSame('exception', SerializerComparison::outcome(static fn () => $comparison->planOnly->denormalize($data, UnionLists::class, JsonEncoder::FORMAT))[0], $case);
         }
+    }
+
+    /**
+     * The PropertyNormalizer normalizes every value through the serializer, which selects the normalizer by the runtime value (the
+     * declared type is never read when normalizing, in 8.1 and 8.2). The plan dispatches the same way: planned classes and value objects
+     * inline, everything else through the serializer.
+     */
+    #[Test]
+    public function unions_and_interfaces_are_normalized_by_the_runtime_class_of_the_value(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $samples = [
+            new UnionElements(
+                [new TextElement('Text'), new ImageElement('https://example.com', null)],
+                ['text' => new TextElement('Text'), 'count' => 7, 'nothing' => null],
+                [new ImageElement('https://example.com', 100), new TextElement('Text')],
+                [[new TextElement('Text')], [new ImageElement('https://example.com', 1)]],
+                [new TextElement('Text'), new \DateTimeImmutable('2026-01-01 10:00:00')],
+            ),
+            new NativeUnions(new ImageElement('https://example.com', 1), 'id', null, 7),
+            new NativeUnions(new TextElement('Text'), 7, new TextElement('Optional')),
+        ];
+
+        // -- Act & Assert
+        foreach ($samples as $sample) {
+            foreach ([null, JsonEncoder::FORMAT] as $format) {
+                $referenceOutcome = SerializerComparison::outcome(static fn () => $comparison->reference->normalize($sample, $format));
+                self::assertSame('result', $referenceOutcome[0]);
+                self::assertSame($referenceOutcome, SerializerComparison::outcome(static fn () => $comparison->plan->normalize($sample, $format)));
+                // Handled by the plan itself
+                self::assertSame($referenceOutcome, SerializerComparison::outcome(static fn () => $comparison->planOnly->normalize($sample, $format)));
+            }
+        }
+    }
+
+    /**
+     * The PropertyNormalizer tries the members of a union in order (and 8.1 and 8.2 build the elements of a collection of a union
+     * differently). The plan only mirrors a union of scalars with values of the type of a member, any other set value falls back.
+     */
+    #[Test]
+    public function native_unions_are_denormalized_through_the_plan_only_for_scalars(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $text = ['text' => 'Text'];
+        $handledByThePlan = [
+            'scalars and nulls' => ['item' => $text, 'id' => 7, 'optional' => null, 'optionalId' => 'id'],
+        ];
+        $fallingBack = [
+            'class union set' => ['item' => $text, 'id' => 7, 'optional' => ['url' => 'https://example.com', 'width' => null]],
+            'class union of the wrong shape' => ['item' => ['other' => true], 'id' => 7, 'optional' => null],
+            'scalar of the wrong type' => ['item' => $text, 'id' => 1.5, 'optional' => null],
+            'array for scalars' => ['item' => $text, 'id' => [7], 'optional' => null],
+            'null for a non-nullable union' => ['item' => $text, 'id' => null, 'optional' => null],
+            'missing union' => ['id' => 7, 'optional' => null],
+        ];
+
+        // -- Act & Assert
+        foreach ([null, JsonEncoder::FORMAT] as $format) {
+            foreach ($handledByThePlan + $fallingBack as $case => $data) {
+                self::assertSame(
+                    SerializerComparison::outcome(static fn () => $comparison->reference->denormalize($data, NativeUnions::class, $format)),
+                    SerializerComparison::outcome(static fn () => $comparison->plan->denormalize($data, NativeUnions::class, $format)),
+                    $case,
+                );
+            }
+        }
+        // The item is a class union as well, so a set item always falls back; without plan of its own, only the scalars stay on the plan
+        self::assertSame(
+            ['result', 'exception'],
+            [
+                SerializerComparison::outcome(static fn () => $comparison->reference->denormalize($handledByThePlan['scalars and nulls'], NativeUnions::class))[0],
+                SerializerComparison::outcome(static fn () => $comparison->planOnly->denormalize($handledByThePlan['scalars and nulls'], NativeUnions::class))[0],
+            ],
+        );
+        // Unions of scalars only: values of the type of a member are handled by the plan itself
+        foreach ([[['id' => 'id', 'amount' => 1.5, 'flag' => true], null], [['id' => 7, 'amount' => 7, 'flag' => 'yes'], null], [['id' => 7, 'amount' => 1.5], JsonEncoder::FORMAT]] as [$data, $format]) {
+            $referenceOutcome = SerializerComparison::outcome(static fn () => $comparison->reference->denormalize($data, ScalarUnions::class, $format));
+            self::assertSame('result', $referenceOutcome[0]);
+            self::assertSame($referenceOutcome, SerializerComparison::outcome(static fn () => $comparison->planOnly->denormalize($data, ScalarUnions::class, $format)));
+        }
+        // An int for a union with float may be converted with the JSON format: left to the fallback, with the same result
+        $intForFloat = ['id' => 7, 'amount' => 7];
+        self::assertSame(
+            SerializerComparison::outcome(static fn () => $comparison->reference->denormalize($intForFloat, ScalarUnions::class, JsonEncoder::FORMAT)),
+            SerializerComparison::outcome(static fn () => $comparison->plan->denormalize($intForFloat, ScalarUnions::class, JsonEncoder::FORMAT)),
+        );
+        self::assertSame('exception', SerializerComparison::outcome(static fn () => $comparison->planOnly->denormalize($intForFloat, ScalarUnions::class, JsonEncoder::FORMAT))[0]);
+        foreach ([['id' => true, 'amount' => 1.5], ['id' => 7, 'amount' => 1.5, 'flag' => 1]] as $invalidData) {
+            self::assertSame(
+                SerializerComparison::outcome(static fn () => $comparison->reference->denormalize($invalidData, ScalarUnions::class)),
+                SerializerComparison::outcome(static fn () => $comparison->plan->denormalize($invalidData, ScalarUnions::class)),
+            );
+        }
+        self::assertSame([], $comparison->knownConstructionNormalizer->diagnose(ScalarUnions::class)->fallbackParameters);
+        self::assertSame(
+            ['item' => 'union with other members than scalars: denormalized through the fallback when set', 'optional' => 'union with other members than scalars: denormalized through the fallback when set'],
+            $comparison->knownConstructionNormalizer->diagnose(NativeUnions::class)->fallbackParameters,
+        );
     }
 
     /**

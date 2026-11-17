@@ -72,3 +72,14 @@ final readonly class JsonSerializableReadModel implements \JsonSerializable
         ];
     }
 }
+
+final readonly class WithClaimedUnion
+{
+    /**
+     * @param list<ClaimedLeaf|WithClaimedClasses|string> $items
+     */
+    public function __construct(
+        public array $items,
+    ) {
+    }
+}

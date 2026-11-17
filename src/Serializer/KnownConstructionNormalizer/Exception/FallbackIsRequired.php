@@ -51,6 +51,11 @@ final class FallbackIsRequired extends \RuntimeException
         return new self('the elements of a union with other members than scalars are not planned');
     }
 
+    public static function union(): self
+    {
+        return new self('a union with other members than scalars is denormalized by the fallback');
+    }
+
     public static function invalidKey(int | string $key): self
     {
         return new self(sprintf('key %s of the wrong type', get_debug_type($key)));

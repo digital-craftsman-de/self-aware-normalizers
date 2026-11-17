@@ -12,6 +12,7 @@ use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Chain
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Chain\JsonSerializableReadModel;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Chain\PerCallNormalizer;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Chain\WithClaimedClasses;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Chain\WithClaimedUnion;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence\SerializerComparison;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Kind;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Leaf;
@@ -300,6 +301,13 @@ final class NormalizerChainTest extends TestCase
                 SerializerComparison::outcome(static fn () => $comparison->plan->denormalize($data, WithClaimedClasses::class, $format)),
             );
         }
+        // Elements of a union are dispatched by their runtime class: the claimed class through the serializer, the planned one inline
+        $union = new WithClaimedUnion([new ClaimedLeaf('Leaf'), $object, 'Text']);
+        self::assertSame(['items' => [['claimed' => 'Leaf'], $data, 'Text']], $comparison->plan->normalize($union));
+        self::assertSame(
+            SerializerComparison::outcome(static fn () => $comparison->reference->normalize($union, JsonEncoder::FORMAT)),
+            SerializerComparison::outcome(static fn () => $comparison->plan->normalize($union, JsonEncoder::FORMAT)),
+        );
         // The class with the claimed classes is planned, the claimed classes go through the serializer
         self::assertTrue($comparison->knownConstructionNormalizer->supportsDenormalization($data, WithClaimedClasses::class));
         self::assertTrue($comparison->knownConstructionNormalizer->supportsNormalization($object));

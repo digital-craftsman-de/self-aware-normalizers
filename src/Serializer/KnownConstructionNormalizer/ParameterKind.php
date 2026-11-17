@@ -96,6 +96,14 @@ final readonly class ParameterKind
     public const int UNION_LIST = 19;
 
     /**
+     * Native or PHPDoc union type of the parameter (e.g. A|B, int|string, A|B|null). The PropertyNormalizer tries the members in order,
+     * which the plan only mirrors for a union of scalars: a value with the type of a member is kept as is. Any other non-null value makes
+     * the object fall back. Normalized by the runtime value like every other value. Target class: null. Extra: list of the scalar kinds of
+     * the members, null for a union with other members.
+     */
+    public const int UNION = 20;
+
+    /**
      * Whether the values of the kind are self-aware value objects the plan handles inline (single or in a list).
      */
     public static function isValueObject(int $kind): bool

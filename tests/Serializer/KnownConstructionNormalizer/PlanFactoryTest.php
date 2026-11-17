@@ -138,7 +138,8 @@ final class PlanFactoryTest extends TestCase
             [
                 [null, ParameterKind::ARRAY],
                 ['collection is not an array: $values (ArrayObject<int, string>)', null],
-                ['union type: $values (int|iterable)', null],
+                // The PHPDoc type is a union, whose values the PropertyNormalizer tries member by member: falls back when set
+                [null, ParameterKind::UNION],
             ],
             $diagnoses,
         );

@@ -56,7 +56,7 @@ use Symfony\Component\TypeInfo\TypeResolver\ReflectionTypeResolver;
  *   2: mixed,
  *   3: bool,
  * }
- * @psalm-type ParameterExtra = null|bool|ScalarListSpec|non-empty-list<int>|list{
+ * @psalm-type ParameterExtra = null|bool|ScalarListSpec|non-empty-list<int>|list<int>|list{
  *   0: int,
  *   1: int,
  * }|list{
@@ -446,9 +446,9 @@ final readonly class PlanFactory
             $t = $t->getWrappedType();
         }
 
-        // A real union is tried member by member, not planned
+        // A real union is tried member by member by the PropertyNormalizer, which the plan only mirrors for scalars
         if ($t instanceof UnionType) {
-            return Diagnosis\PlanLimitationReason::UNION_TYPE;
+            return [ParameterKind::UNION, null, self::scalarKindsOfUnion($t)];
         }
 
         if ($t instanceof CollectionType) {
@@ -565,6 +565,26 @@ final readonly class PlanFactory
     }
 
     /**
+     * The scalar kinds of the members of the union, null when a member isn't a scalar.
+     *
+     * @return list<int>|null
+     */
+    private static function scalarKindsOfUnion(UnionType $unionType): ?array
+    {
+        $kinds = [];
+        foreach ($unionType->getTypes() as $memberType) {
+            $kind = self::KINDS_OF_SCALAR_TYPES[(string) $memberType] ?? null;
+            if ($kind === null) {
+                return null;
+            }
+
+            $kinds[] = $kind;
+        }
+
+        return $kinds;
+    }
+
+    /**
      * Elements of a union type: a union of scalars is validated element by element (and the keys checked like symfony/serializer 8.2
      * does it), any other union falls back unless the collection is empty.
      *
@@ -581,17 +601,11 @@ final readonly class PlanFactory
         bool $isNullable,
         Type $keyType,
     ): array {
-        $kinds = [];
-        foreach ($unionType->getTypes() as $memberType) {
-            $kind = self::KINDS_OF_SCALAR_TYPES[(string) $memberType] ?? null;
-            if ($kind === null) {
-                return [ParameterKind::UNION_LIST, null, null];
-            }
+        $kinds = self::scalarKindsOfUnion($unionType);
 
-            $kinds[] = $kind;
-        }
-
-        return [ParameterKind::SCALAR_UNION_LIST, null, [$kinds, $isNullable, self::keyCheck($keyType)]];
+        return $kinds !== null
+            ? [ParameterKind::SCALAR_UNION_LIST, null, [$kinds, $isNullable, self::keyCheck($keyType)]]
+            : [ParameterKind::UNION_LIST, null, null];
     }
 
     /**

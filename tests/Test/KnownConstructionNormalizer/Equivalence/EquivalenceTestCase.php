@@ -139,7 +139,11 @@ abstract class EquivalenceTestCase extends KernelTestCase
                     }
                 }
 
-                // The plan itself (not its fallback) handles valid data (JSON round trip with the JSON format)
+                // The plan itself (not its fallback) handles valid data (JSON round trip with the JSON format), except for the parameters
+                // that fall back by design when set (unions with other members than scalars)
+                if ($comparison->knownConstructionNormalizer->diagnose($class)->fallbackParameters !== []) {
+                    continue;
+                }
                 $referenceOutcome = SerializerComparison::outcome(static fn () => $comparison->reference->denormalize($jsonData, $class, JsonEncoder::FORMAT));
                 $planOnlyOutcome = SerializerComparison::outcome(static fn () => $comparison->planOnly->denormalize($jsonData, $class, JsonEncoder::FORMAT));
                 if ($referenceOutcome[0] === 'result'
