@@ -13,8 +13,9 @@ use Symfony\Component\DependencyInjection\Reference;
 /**
  * The profiler panel of the KnownConstructionNormalizer (KnownConstructionNormalizerDataCollector) and its Recorder are registered by the
  * extension in debug mode (so the panel keeps the position of the bundle in the menu). Only now it's known whether the profiler is enabled:
- * without it, both are removed again, with it, the KnownConstructionNormalizer gets the Recorder. Without debug mode or profiler, the
- * KnownConstructionNormalizer has no recorder and records nothing.
+ * with it, the KnownConstructionNormalizer gets the Recorder. Without it, nothing references the panel and the Recorder (the ProfilerPass
+ * doesn't collect the panel, the reset of the Recorder is only a reference ignored when uninitialized), so the container removes both.
+ * Without debug mode or profiler, the KnownConstructionNormalizer has no recorder and records nothing.
  *
  * Runs before the ProfilerPass of the FrameworkBundle, which collects the data collectors.
  *
@@ -28,14 +29,9 @@ final readonly class KnownConstructionNormalizerProfilerPass implements Compiler
     #[\Override]
     public function process(ContainerBuilder $container): void
     {
-        if (!$container->hasDefinition(self::DATA_COLLECTOR_SERVICE_ID)) {
-            return;
-        }
-
-        if (!$container->hasDefinition('profiler')) {
-            $container->removeDefinition(self::DATA_COLLECTOR_SERVICE_ID);
-            $container->removeDefinition(self::RECORDER_SERVICE_ID);
-
+        if (!$container->hasDefinition(self::DATA_COLLECTOR_SERVICE_ID)
+            || !$container->hasDefinition('profiler')
+        ) {
             return;
         }
 

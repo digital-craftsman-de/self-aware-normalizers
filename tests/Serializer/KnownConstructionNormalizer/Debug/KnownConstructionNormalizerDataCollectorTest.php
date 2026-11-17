@@ -21,6 +21,7 @@ use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixtu
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Count;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Flag;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Weight;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Profiler\ArchivedReadModel;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Profiler\LaterBundle;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Profiler\LaterDataCollector;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Profiler\MappedReadModel;
@@ -103,7 +104,8 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
         // Value objects inline, a value through the serializer
         $serializer->denormalize(['count' => 1, 'weight' => 2.5, 'flag' => true, 'optionalWeight' => null, 'counts' => [1], 'flagsByKey' => [], 'weightsByAnyKey' => []], ValueObjects::class);
         $serializer->normalize(new Objects(new \ArrayObject(), [new \DateTimeImmutable('2026-01-01')]));
-        // The plan tried, but the data doesn't match
+        // The plan tried, but the data doesn't match, twice
+        self::outcome(static fn () => $serializer->denormalize(['name' => 1], Leaf::class));
         self::outcome(static fn () => $serializer->denormalize(['name' => 1], Leaf::class));
         // No plan, as the class could get one
         $serializer->denormalize(['name' => 'Example'], Hooked::class);
@@ -134,7 +136,7 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
                 ],
                 Recorder::DENORMALIZE => [
                     'plan' => 3,
-                    'fallback' => 1,
+                    'fallback' => 2,
                     'notHandled' => 2,
                 ],
             ],
@@ -146,7 +148,7 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
                 [
                     'class' => Leaf::class,
                     'direction' => Recorder::DENORMALIZE,
-                    'count' => 1,
+                    'count' => 2,
                     'kind' => KnownConstructionNormalizerDataCollector::KIND_RUNTIME_FALLBACK,
                     'reason' => sprintf('%s::$name: string expected, int given', Leaf::class),
                     'hint' => null,
@@ -202,7 +204,7 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
             ],
             $unserializedCollector->getMissed(),
         );
-        self::assertSame(7, $unserializedCollector->getFallbackCount());
+        self::assertSame(8, $unserializedCollector->getFallbackCount());
         self::assertSame(
             [
                 [
@@ -278,19 +280,25 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
         $collector = self::collector($kernel);
         $knownConstructionNormalizer = $container->get(SelfAwareNormalizersExtension::KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID);
         self::assertInstanceOf(KnownConstructionNormalizer::class, $knownConstructionNormalizer);
+        $objects = new Objects(new \ArrayObject(), [new \DateTimeImmutable('2026-01-01')]);
+        $valueObjects = new ValueObjects(new Count(1), new Weight(2.5), new Flag(true), null, [new Count(1)], [], []);
         // An earlier request of the same instance
-        $serializer->normalize(new Leaf('Example'));
+        $serializer->normalize($objects);
+        $serializer->normalize($valueObjects);
         $collector->reset();
-        // Another instance (e.g. an earlier process) wrote the plan of ValueObjects into the pool
+        // Another instance (e.g. an earlier process) wrote the plan of Leaf into the pool
         $otherKnownConstructionNormalizer = new KnownConstructionNormalizer(
             new \ReflectionProperty(KnownConstructionNormalizer::class, 'planFactory')->getValue($knownConstructionNormalizer),
             $knownConstructionNormalizer,
             $container->get(TestKernel::PLAN_CACHE_POOL_ID),
             (string) $container->getParameter('container.build_id'),
         );
-        $otherKnownConstructionNormalizer->supportsDenormalization([], ValueObjects::class);
+        $otherKnownConstructionNormalizer->supportsDenormalization([], Leaf::class);
 
         // -- Act
+        // Not in alphabetical order, and ValueObjects in both directions
+        $serializer->normalize($valueObjects);
+        $serializer->normalize($objects);
         $serializer->normalize(new Leaf('Example'));
         $serializer->denormalize(['count' => 1, 'weight' => 2.5, 'flag' => true, 'optionalWeight' => null, 'counts' => [], 'flagsByKey' => [], 'weightsByAnyKey' => []], ValueObjects::class);
         $collector->collect(new Request(), new Response());
@@ -299,8 +307,9 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
         self::assertSame(
             [
                 'built' => [],
-                'loadedFromPool' => [ValueObjects::class],
-                'fromMemory' => [Leaf::class],
+                'loadedFromPool' => [Leaf::class],
+                // Every class once, sorted
+                'fromMemory' => [Objects::class, ValueObjects::class],
             ],
             $collector->getPlans(),
         );
@@ -337,6 +346,51 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
         );
         // Not counted as missed, as another normalizer handles the class
         self::assertSame(0, $collector->getFallbackCount());
+        // Tagged without priority, like the serializer sorts it
+        $normalizers = array_column($collector->getConfiguration()['normalizers'] ?? [], null, 'id');
+        self::assertSame(0, $normalizers['app.per_call_normalizer']['priority'] ?? null);
+    }
+
+    #[Test]
+    public function a_plan_cache_pool_that_is_not_defined_is_shown_as_such(): void
+    {
+        // -- Arrange
+        $kernel = $this->bootedKernel('profiler_undefined_pool', true, null, [
+            'plan_cache_pool' => 'app.undefined_pool',
+        ]);
+        $collector = self::collector($kernel);
+
+        // -- Act
+        $collector->collect(new Request(), new Response());
+
+        // -- Assert
+        self::assertSame(
+            [
+                'planCachePool' => 'app.undefined_pool',
+                'isPlanCachePoolDefined' => false,
+            ],
+            array_intersect_key($collector->getConfiguration(), array_flip(['planCachePool', 'isPlanCachePoolDefined'])),
+        );
+    }
+
+    #[Test]
+    public function without_plan_cache_pool_none_is_shown(): void
+    {
+        // -- Arrange
+        $kernel = $this->bootedKernel('profiler_without_pool', true);
+        $collector = self::collector($kernel);
+
+        // -- Act
+        $collector->collect(new Request(), new Response());
+
+        // -- Assert
+        self::assertSame(
+            [
+                'planCachePool' => null,
+                'isPlanCachePoolDefined' => false,
+            ],
+            array_intersect_key($collector->getConfiguration(), array_flip(['planCachePool', 'isPlanCachePoolDefined'])),
+        );
     }
 
     #[Test]
@@ -352,9 +406,12 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
 
         // -- Act
         $collector->reset();
+        $fastCountAfterReset = $collector->getFastCount();
         $collector->collect(new Request(), new Response());
 
         // -- Assert
+        // The collected data is gone, and so is what was recorded for it
+        self::assertSame(0, $fastCountAfterReset);
         self::assertSame(0, $collector->getFastCount());
         self::assertSame([], $collector->getMissed());
         self::assertSame([], $collector->getPlans()['built']);
@@ -389,15 +446,24 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
         $collector = self::collector($kernel);
 
         // -- Act
+        // Not in alphabetical order, and MappedReadModel in both directions
         $serializer->normalize(new MappedReadModel('Example', 1));
+        $serializer->normalize(new ArchivedReadModel('Example'));
+        $serializer->denormalize(['name' => 'Example', 'count' => 1], MappedReadModel::class);
         $serializer->normalize(new Leaf('Example'));
         // An interface is looked up as well
         self::outcome(static fn () => $serializer->denormalize(['name' => 'Example'], \Countable::class));
         $collector->collect(new Request(), new Response());
 
         // -- Assert
+        // Every class once, sorted, and only the attributes of the serializer
         self::assertSame(
             [
+                [
+                    'class' => ArchivedReadModel::class,
+                    'member' => '$name',
+                    'attribute' => sprintf('#[%s]', SerializedName::class),
+                ],
                 [
                     'class' => MappedReadModel::class,
                     'member' => 'class',

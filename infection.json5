@@ -17,12 +17,20 @@
       "ignore": [
         "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableType::convertToPHPValue",
         "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableThroughLookupType::convertToPHPValue"
+      ],
+      "ignoreSourceCodeByRegex": [
+        // Nanoseconds to milliseconds for the profiler: a divisor off by one changes the time by a millionth
+        ".*\\(hrtime\\(true\\) - \\$start\\) / 1_000_000.*"
       ]
     },
     "DecrementInteger": {
       "ignore": [
         "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableType::convertToPHPValue",
         "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableThroughLookupType::convertToPHPValue"
+      ],
+      "ignoreSourceCodeByRegex": [
+        // See IncrementInteger
+        ".*\\(hrtime\\(true\\) - \\$start\\) / 1_000_000.*"
       ]
     },
     "MethodCallRemoval": {
@@ -47,7 +55,9 @@
       "ignoreSourceCodeByRegex": [
         // Memo lookups in front of the method that fills the memo: swapped, the plan or kind is computed from the memo anyway
         ".*\\$this->plans\\[.+\\] \\?\\? \\$this->plan\\(.*",
-        ".*\\$this->normalizationKinds\\[\\$class\\] \\?\\? \\$this->normalizationKind\\(\\$class\\);"
+        ".*\\$this->normalizationKinds\\[\\$class\\] \\?\\? \\$this->normalizationKind\\(\\$class\\);",
+        // A diagnosis has at most one of the two limitations (the normalization limitation only for a planned class)
+        ".*\\$diagnosis->limitation \\?\\? \\$diagnosis->normalizationLimitation;"
       ]
     },
     "ReturnRemoval": {
@@ -69,6 +79,9 @@
     },
     "LogicalAnd": {
       "ignore": [
+        // Copy of AbstractObjectNormalizer::hasScalarElements(), kept as it is: every type that reaches it has getTypeIdentifier(), so
+        // the instanceof only guards the call
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\PlanFactory::hasScalarElements",
         // Fast path for null and scalars: normalizeValue() returns them as they are
         "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizeObject",
         // The union member flag only changes how a failing denormalization fails, which falls back to the PropertyNormalizer anyway
@@ -106,6 +119,12 @@
       ]
     },
     "FalseValue": {
+      "ignoreSourceCodeByRegex": [
+        // A union parameter never gets null here: null is handled for every parameter before its kind
+        ".*self::validateScalarUnionElement\\(\\$value, \\$extra, false, \\$isIntCastToFloat\\).*",
+        // Whether the collection is a list is only read for the spec of a nested collection, never for the one of a scalar
+        ".*\\? \\[\\$kind, \\$isNullable, null, false\\]"
+      ],
       "ignore": [
         // Whether another class has a plan only decides the kind of a parameter, never a limitation, which is all diagnose() reads
         "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::diagnose",

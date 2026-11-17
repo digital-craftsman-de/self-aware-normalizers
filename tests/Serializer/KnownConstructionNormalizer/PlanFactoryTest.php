@@ -6,10 +6,25 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNorm
 
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizableNormalizer;
 use DigitalCraftsman\SelfAwareNormalizers\Test\ConstructFinder\SomeTrait;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis\ParameterPassedByReference;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis\UntypedParameter;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis\VariadicParameter;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence\ThrowingPropertyTypeExtractor;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\AdditionalParameter;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Base;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Boxed;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Described;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Grove;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Hooked;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Inherited;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\IntersectionParameter;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Kind;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Leaf;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\NonPublicProperty;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ParameterWithoutProperty;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\PrivateConstructor;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ReadModelFailed;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ValueObjects;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Sample\ArrayWithCollectionClassDoc;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Sample\ArrayWithIntOrIterableDoc;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Sample\ArrayWithIterableDoc;
@@ -21,13 +36,15 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+use Symfony\Component\Serializer\Normalizer\BackedEnumNormalizer;
 
 require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Fixture/ReadModel/fixtures.php';
 require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Union/fixtures.php';
+require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Diagnosis/fixtures.php';
 
 /**
- * Limitations the configured KnownConstructionNormalizer can't reach (classes out of its scope, type extractors other than the one of the
- * PropertyNormalizer). The limitations of the classes in scope are pinned by ListUnplannedClassesCommandTest.
+ * The plans and limitations the PlanFactory diagnoses (which the profiler panel shows), including the ones the configured
+ * KnownConstructionNormalizer can't reach (type extractors other than the one of the PropertyNormalizer).
  */
 #[CoversClass(PlanFactory::class)]
 #[CoversClass(Diagnosis\PlanDiagnosis::class)]
@@ -83,6 +100,110 @@ final class PlanFactoryTest extends TestCase
             /** @var class-string $type */
             self::assertEquals(Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::NOT_A_CLASS), $planFactory->diagnose($type, $hasPlan)->limitation, $type);
         }
+    }
+
+    /**
+     * The first limitation found is the one reported, so each shape is diagnosed with the reason that matches it (and not with a later one
+     * that would catch it as well).
+     */
+    #[Test]
+    public function every_shape_of_a_class_without_plan_is_diagnosed_with_its_reason(): void
+    {
+        // -- Arrange
+        // The BackedEnumNormalizer supports every enum, but an enum is reported as enum and not as claimed
+        $planFactory = new PlanFactory(
+            new PropertyInfoExtractor([], [new PhpDocExtractor(), new ReflectionExtractor()]),
+            new NormalizerChain([
+                'serializer.normalizer.backed_enum' => new BackedEnumNormalizer(),
+            ]),
+        );
+        $hasPlan = static fn (string $class): bool => false;
+
+        // -- Act
+        $descriptions = [];
+        foreach ([
+            Kind::class,
+            Base::class,
+            PrivateConstructor::class,
+            NonPublicProperty::class,
+            ParameterWithoutProperty::class,
+            Hooked::class,
+            Inherited::class,
+            VariadicParameter::class,
+            ParameterPassedByReference::class,
+            AdditionalParameter::class,
+            UntypedParameter::class,
+            IntersectionParameter::class,
+        ] as $class) {
+            $descriptions[$class] = $planFactory->diagnose($class, $hasPlan)->limitation?->describe();
+        }
+
+        // -- Assert
+        self::assertSame(
+            [
+                Kind::class => 'enum',
+                Base::class => 'abstract class',
+                PrivateConstructor::class => 'constructor is not public',
+                NonPublicProperty::class => 'property is not public: $secret',
+                ParameterWithoutProperty::class => 'property is not promoted: $upperCaseName',
+                Hooked::class => 'property has hooks: $name',
+                Inherited::class => sprintf('property is inherited: $name (declared in %s)', Base::class),
+                VariadicParameter::class => 'parameter is variadic: $names',
+                ParameterPassedByReference::class => 'parameter is passed by reference: $reference',
+                AdditionalParameter::class => 'parameter is not promoted: $unused',
+                UntypedParameter::class => 'parameter has no type: $name',
+                IntersectionParameter::class => 'intersection type: $value (Countable&Traversable)',
+            ],
+            $descriptions,
+        );
+    }
+
+    /**
+     * Value objects are handled inline and classes with a plan are denormalized through it, the profiler panel lists only the other
+     * classes as delegated to the serializer.
+     */
+    #[Test]
+    public function parameters_are_planned_by_the_kind_of_their_type(): void
+    {
+        // -- Arrange
+        $planFactory = new PlanFactory(new PropertyInfoExtractor([], [new PhpDocExtractor(), new ReflectionExtractor()]));
+        $hasPlan = static fn (string $class): bool => true;
+
+        // -- Act
+        $kinds = [];
+        foreach ([ValueObjects::class, Grove::class, Boxed::class] as $class) {
+            foreach ($planFactory->create($class, $hasPlan)['parameters'] ?? [] as [$name, $kind]) {
+                $kinds[$class][$name] = $kind;
+            }
+        }
+
+        // -- Assert
+        self::assertSame(
+            [
+                ValueObjects::class => [
+                    'count' => ParameterKind::VALUE_OBJECT_INT,
+                    'weight' => ParameterKind::VALUE_OBJECT_FLOAT,
+                    'flag' => ParameterKind::VALUE_OBJECT_BOOL,
+                    'optionalWeight' => ParameterKind::VALUE_OBJECT_FLOAT,
+                    'counts' => ParameterKind::VALUE_OBJECT_LIST,
+                    'flagsByKey' => ParameterKind::VALUE_OBJECT_LIST,
+                    'weightsByAnyKey' => ParameterKind::VALUE_OBJECT_LIST,
+                ],
+                Grove::class => [
+                    'name' => ParameterKind::STRING,
+                    'leaf' => ParameterKind::NESTED,
+                    'leaves' => ParameterKind::NESTED_LIST,
+                    'leavesByKey' => ParameterKind::NESTED_LIST,
+                    'leavesByAnyKey' => ParameterKind::NESTED_LIST,
+                    'tree' => ParameterKind::NESTED,
+                ],
+                // The generic type is unwrapped to its class
+                Boxed::class => [
+                    'box' => ParameterKind::NESTED,
+                ],
+            ],
+            $kinds,
+        );
     }
 
     #[Test]

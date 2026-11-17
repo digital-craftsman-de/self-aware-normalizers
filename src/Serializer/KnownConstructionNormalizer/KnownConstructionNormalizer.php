@@ -228,7 +228,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
     /**
      * Accepted context options (built-in and configured), option => true.
      *
-     * @var array<array-key, true>
+     * @var array<string, true>
      */
     private readonly array $acceptedContextOptions;
 
@@ -1404,12 +1404,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
      */
     public function acceptedContextOptions(): array
     {
-        $acceptedContextOptions = [];
-        foreach (array_keys($this->acceptedContextOptions) as $option) {
-            $acceptedContextOptions[(string) $option] = null;
-        }
-
-        return $acceptedContextOptions + self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE;
+        return array_fill_keys(array_keys($this->acceptedContextOptions), null) + self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE;
     }
 
     /**

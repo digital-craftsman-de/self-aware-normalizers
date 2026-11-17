@@ -522,8 +522,7 @@ final readonly class PlanFactory
         // Collection of objects, denormalized through the ArrayDenormalizer by the PropertyNormalizer as "X[]". A nested collection of
         // objects (an array of collections) as "X[][]", "X[][][]", ...: the same levels as AbstractObjectNormalizer::validateAndDenormalize()
         // (one CollectionType per level, one NullableType unwrapped per level), each with the key check the ArrayDenormalizer applies.
-        $isNestedCollection = $valueBaseType instanceof BuiltinType
-            && $valueBaseType->getTypeIdentifier() === TypeIdentifier::ARRAY;
+        $isNestedCollection = $valueBaseType->isIdentifiedBy(TypeIdentifier::ARRAY);
         $keyCheckOfContext = self::keyCheck($keyType);
         $keyChecks = [$keyCheckOfContext];
         $isContextPassedOn = true;

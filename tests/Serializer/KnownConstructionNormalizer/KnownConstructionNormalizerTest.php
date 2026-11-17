@@ -34,6 +34,7 @@ use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixtu
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\NoProperties;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ObjectParameter;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Objects;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ObjectsByKey;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ObjectShape;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Optional;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ParameterWithoutProperty;
@@ -86,6 +87,7 @@ require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Union/fixtur
 #[CoversClass(Exception\TypeCanNotBePlanned::class)]
 #[CoversClass(Diagnosis\ClassDiagnosis::class)]
 #[CoversClass(Diagnosis\DelegatedParameter::class)]
+#[CoversClass(Debug\Recorder::class)]
 final class KnownConstructionNormalizerTest extends KernelTestCase
 {
     #[Test]
@@ -191,6 +193,9 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
                 new \ArrayObject(),
                 [new \DateTimeImmutable('2026-11-15 10:30:00'), new \DateTimeImmutable('2026-11-16 10:30:00')],
             ),
+            new ObjectsByKey([
+                'first' => new \DateTimeImmutable('2026-11-15 10:30:00'),
+            ]),
             // The PHPDoc type is wrong on purpose
             new \ReflectionClass(TypeMismatch::class)->newInstance(2.5),
             new Optional('Example', 7),
@@ -878,6 +883,81 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
             SerializerComparison::outcome(static fn () => $comparison->reference->normalize(self::lazyLeaf())),
             SerializerComparison::outcome(static fn () => $comparison->planOnly->normalize($lazyLeaf)),
         );
+    }
+
+    /**
+     * The reasons the profiler panel shows: every option of the context and the default context the plan doesn't accept, and a direct
+     * call for a class without plan as fallback.
+     */
+    #[Test]
+    public function the_recorder_gets_why_the_plan_is_not_used(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $recorder = new Debug\Recorder();
+        $knownConstructionNormalizer = new KnownConstructionNormalizer(
+            $comparison->planFactory,
+            $comparison->knownConstructionNormalizer,
+            null,
+            'test',
+            [AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => false],
+            ['app_option'],
+            $recorder,
+        );
+        $data = ['name' => 'Example'];
+
+        // -- Act
+        // The default context alone
+        $isSupportedWithDefaultContext = $knownConstructionNormalizer->supportsDenormalization($data, Leaf::class);
+        // The context overrules the default context, and every option is checked
+        $isSupportedWithContext = $knownConstructionNormalizer->supportsDenormalization($data, Leaf::class, null, [
+            'app_option' => true,
+            AbstractNormalizer::GROUPS => ['list'],
+            AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => true,
+            'option_of_a_later_version' => true,
+        ]);
+        // A class that is only planned for the denormalization
+        $isMutableSupported = $knownConstructionNormalizer->supportsDenormalization($data, Mutable::class, null, [
+            AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => true,
+            AbstractNormalizer::GROUPS => ['list'],
+        ]);
+        $knownConstructionNormalizer->normalize(new Mutable('Example'));
+        $recorded = $recorder->recorded();
+
+        // -- Assert
+        self::assertFalse($isSupportedWithDefaultContext);
+        self::assertFalse($isSupportedWithContext);
+        self::assertFalse($isMutableSupported);
+        self::assertSame(
+            [
+                Debug\Recorder::DENORMALIZE => [
+                    Leaf::class => [
+                        'the context option "allow_extra_attributes" is only supported with true' => 1,
+                        'the context option "groups" is unknown, the context option "option_of_a_later_version" is unknown' => 1,
+                    ],
+                    Mutable::class => [
+                        'the context option "groups" is unknown' => 1,
+                    ],
+                ],
+            ],
+            $recorded['notSupported'],
+        );
+        self::assertSame(
+            [
+                Debug\Recorder::NORMALIZE => [
+                    Mutable::class => [
+                        Debug\Recorder::REASON_NO_PLAN => 1,
+                    ],
+                ],
+            ],
+            $recorded['fallbacks'],
+        );
+        self::assertSame([Leaf::class, Mutable::class], array_keys($recorded['builtPlans']));
+        foreach ($recorded['builtPlans'] as $milliseconds) {
+            self::assertGreaterThanOrEqual(0.0, $milliseconds);
+            // Building a plan takes far less than a second
+            self::assertLessThan(1_000.0, $milliseconds);
+        }
     }
 
     #[Test]

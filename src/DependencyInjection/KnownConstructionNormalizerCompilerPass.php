@@ -58,7 +58,6 @@ final readonly class KnownConstructionNormalizerCompilerPass implements Compiler
      */
     private const int KNOWN_CONSTRUCTION_NORMALIZER_ARGUMENT_FALLBACK_NORMALIZER = 1;
     private const int KNOWN_CONSTRUCTION_NORMALIZER_ARGUMENT_DEFAULT_CONTEXT = 4;
-    private const int KNOWN_CONSTRUCTION_NORMALIZER_ARGUMENT_PLAN_CACHE = 2;
     private const int DATA_COLLECTOR_ARGUMENT_CONFIGURATION = 2;
     private const int PLAN_FACTORY_ARGUMENT_PROPERTY_TYPE_EXTRACTOR = 0;
     private const int PLAN_FACTORY_ARGUMENT_NORMALIZER_CHAIN = 1;
@@ -188,21 +187,23 @@ final readonly class KnownConstructionNormalizerCompilerPass implements Compiler
             ];
         }
 
-        $planCachePool = $container->getDefinition(SelfAwareNormalizersExtension::KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID)
-            ->getArgument(self::KNOWN_CONSTRUCTION_NORMALIZER_ARGUMENT_PLAN_CACHE);
+        $dataCollectorDefinition = $container->getDefinition(KnownConstructionNormalizerProfilerPass::DATA_COLLECTOR_SERVICE_ID);
+        /**
+         * @var array{planCachePool: ?string} $configurationOfExtension Set by the extension (the reference to a pool that doesn't exist
+         *                                    is already removed from the KnownConstructionNormalizer here)
+         */
+        $configurationOfExtension = $dataCollectorDefinition->getArgument(self::DATA_COLLECTOR_ARGUMENT_CONFIGURATION);
+        $planCachePool = $configurationOfExtension['planCachePool'];
 
-        $container->getDefinition(KnownConstructionNormalizerProfilerPass::DATA_COLLECTOR_SERVICE_ID)
-            ->replaceArgument(self::DATA_COLLECTOR_ARGUMENT_CONFIGURATION, [
-                'fallbackNormalizer' => $fallbackId,
-                'fallbackPriority' => $fallbackPriority,
-                'priority' => $knownConstructionNormalizerPriority,
-                'planCachePool' => $planCachePool instanceof Reference
-                    ? (string) $planCachePool
-                    : null,
-                'isPlanCachePoolDefined' => $planCachePool instanceof Reference
-                    && $container->has((string) $planCachePool),
-                'normalizers' => $normalizers,
-            ]);
+        $dataCollectorDefinition->replaceArgument(self::DATA_COLLECTOR_ARGUMENT_CONFIGURATION, [
+            'fallbackNormalizer' => $fallbackId,
+            'fallbackPriority' => $fallbackPriority,
+            'priority' => $knownConstructionNormalizerPriority,
+            'planCachePool' => $planCachePool,
+            'isPlanCachePoolDefined' => $planCachePool !== null
+                && $container->has($planCachePool),
+            'normalizers' => $normalizers,
+        ]);
     }
 
     /**

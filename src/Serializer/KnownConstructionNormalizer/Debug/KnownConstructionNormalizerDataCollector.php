@@ -142,11 +142,15 @@ final class KnownConstructionNormalizerDataCollector extends AbstractDataCollect
         foreach ($plannedClasses as $class) {
             $diagnosis = $this->knownConstructionNormalizer->diagnose($class);
             foreach ($diagnosis->delegatedParameters as $parameter) {
+                /**
+                 * @var PlanLimitation $limitationOfTargetClass Delegated, as the target class has no plan (a class of a recursion has none either)
+                 */
+                $limitationOfTargetClass = $this->knownConstructionNormalizer->diagnose($parameter->targetClass)->limitation;
                 $delegated[] = [
                     'class' => $class,
                     'parameter' => $parameter->name,
                     'type' => $parameter->targetClass.$parameter->typeSuffix,
-                    'reason' => $this->knownConstructionNormalizer->diagnose($parameter->targetClass)->limitation?->describe() ?? 'planned, but referencing the class itself',
+                    'reason' => $limitationOfTargetClass->describe(),
                 ];
             }
             foreach ($diagnosis->fallbackParameters as $parameter => $reason) {

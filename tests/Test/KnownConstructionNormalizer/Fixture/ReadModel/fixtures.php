@@ -378,6 +378,20 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer
     }
 
     /**
+     * Objects the serializer denormalizes, keyed: the keys are checked by the ArrayDenormalizer.
+     */
+    final readonly class ObjectsByKey
+    {
+        /**
+         * @param array<string, \DateTimeImmutable> $momentsByKey
+         */
+        public function __construct(
+            public array $momentsByKey,
+        ) {
+        }
+    }
+
+    /**
      * The PHPDoc type doesn't match the native type, the native type wins (like for the PropertyNormalizer).
      */
     final readonly class TypeMismatch

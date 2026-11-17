@@ -119,7 +119,7 @@ final class SelfAwareNormalizersExtension extends Extension
             ]);
 
         if ($container->getParameter('kernel.debug') === true) {
-            self::registerDataCollector($container);
+            self::registerDataCollector($container, $planCachePool);
         }
     }
 
@@ -128,11 +128,13 @@ final class SelfAwareNormalizersExtension extends Extension
      * the order in which they were registered, so the position of the panel in the menu follows the order of the bundles in bundles.php
      * (e.g. after the serializer of the FrameworkBundle and before the panels of bundles listed after this one).
      *
-     * Whether the profiler exists is only known later: the KnownConstructionNormalizerProfilerPass removes the collector and the recorder
-     * again without it, and gives the KnownConstructionNormalizer the recorder with it.
+     * Whether the profiler exists is only known later: the KnownConstructionNormalizerProfilerPass gives the KnownConstructionNormalizer the
+     * recorder with it, without it the container removes the collector and the recorder as unused.
      */
-    private static function registerDataCollector(ContainerBuilder $container): void
-    {
+    private static function registerDataCollector(
+        ContainerBuilder $container,
+        ?string $planCachePool,
+    ): void {
         $container->setDefinition(KnownConstructionNormalizerProfilerPass::RECORDER_SERVICE_ID, new Definition(Recorder::class))
             ->addTag('kernel.reset', [
                 'method' => 'reset',
@@ -141,7 +143,11 @@ final class SelfAwareNormalizersExtension extends Extension
         $container->setDefinition(KnownConstructionNormalizerProfilerPass::DATA_COLLECTOR_SERVICE_ID, new Definition(KnownConstructionNormalizerDataCollector::class, [
             new Reference(KnownConstructionNormalizerProfilerPass::RECORDER_SERVICE_ID),
             new Reference(self::KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID),
-            [],
+            // Completed by the KnownConstructionNormalizerCompilerPass. The configured pool is kept here, as the reference to it is
+            // already removed when the pool doesn't exist.
+            [
+                'planCachePool' => $planCachePool,
+            ],
         ]))
             ->addTag('data_collector', [
                 'template' => KnownConstructionNormalizerDataCollector::TEMPLATE,

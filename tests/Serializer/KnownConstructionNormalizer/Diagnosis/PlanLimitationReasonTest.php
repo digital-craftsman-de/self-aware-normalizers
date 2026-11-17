@@ -63,6 +63,71 @@ final class PlanLimitationReasonTest extends TestCase
         );
     }
 
+    /**
+     * The profiler lists the classes without plan by design apart from the ones that could get a plan, and only the latter get a hint.
+     */
+    #[Test]
+    public function reasons_by_design_have_no_hint_and_every_other_reason_has_one(): void
+    {
+        // -- Act
+        $reasonsByDesign = [];
+        $hints = [];
+        foreach (PlanLimitationReason::cases() as $reason) {
+            if ($reason->isByDesign()) {
+                $reasonsByDesign[] = $reason->value;
+            }
+            $hints[$reason->value] = $reason->fixHint();
+        }
+
+        // -- Assert
+        self::assertSame(
+            [
+                'INTERFACE',
+                'ENUM',
+                'ABSTRACT_CLASS',
+                'SELF_AWARE_VALUE_OBJECT',
+                'INTERNAL_CLASS',
+                'EXCEPTION',
+                'ANONYMOUS_CLASS',
+                'NOT_A_CLASS',
+                'CLAIMED_BY_OTHER_NORMALIZER',
+            ],
+            $reasonsByDesign,
+        );
+        self::assertSame(
+            [
+                'INTERFACE' => null,
+                'ENUM' => null,
+                'ABSTRACT_CLASS' => null,
+                'SELF_AWARE_VALUE_OBJECT' => null,
+                'INTERNAL_CLASS' => null,
+                'EXCEPTION' => null,
+                'ANONYMOUS_CLASS' => null,
+                'NOT_A_CLASS' => null,
+                'CONSTRUCTOR_IS_NOT_PUBLIC' => 'Make the constructor public.',
+                'NO_CONSTRUCTOR' => 'Promote every property in the constructor, with parameters exactly like the properties.',
+                'PROPERTY_IS_NOT_PUBLIC' => 'Make the property public (readonly).',
+                'PROPERTY_IS_NOT_PROMOTED' => 'Promote every property in the constructor, with parameters exactly like the properties.',
+                'PROPERTY_HAS_HOOKS' => 'Remove the hooks of the property.',
+                'PROPERTY_IS_INHERITED' => 'Declare the property in the class itself instead of a parent class.',
+                'PARAMETER_IS_VARIADIC' => 'Use an array instead of a variadic parameter.',
+                'PARAMETER_IS_PASSED_BY_REFERENCE' => 'Pass the parameter by value.',
+                'PARAMETER_IS_NOT_PROMOTED' => 'Promote every property in the constructor, with parameters exactly like the properties.',
+                'PARAMETER_HAS_NO_TYPE' => 'Add a type to the parameter.',
+                'PARAMETER_HAS_OBJECT_DEFAULT_VALUE' => 'Use null as default value and create the object in the caller.',
+                'PARAMETERS_DIFFER_FROM_PROPERTIES' => 'Promote every property in the constructor, with parameters exactly like the properties.',
+                'TYPE_IS_NOT_RESOLVABLE' => 'Use a type the plan can express: scalars, arrays, lists of them, value objects and other plannable classes.',
+                'INTERSECTION_TYPE' => 'Use a single (nullable) type or a union.',
+                'COLLECTION_IS_NOT_AN_ARRAY' => 'Use an array (e.g. list<X>) instead of an iterable or a collection class.',
+                'UNSUPPORTED_TYPE' => 'Use a type the plan can express: scalars, arrays, lists of them, value objects and other plannable classes.',
+                'RECURSIVE_CLASS' => 'Break the recursion, e.g. by referencing the nested items by id.',
+                'CLAIMED_BY_OTHER_NORMALIZER' => null,
+                'PROPERTY_IS_MUTABLE' => 'Make every property readonly (the class is only denormalized through its plan).',
+            ],
+            $hints,
+        );
+    }
+
     #[Test]
     public function internal_signals_have_a_message(): void
     {
