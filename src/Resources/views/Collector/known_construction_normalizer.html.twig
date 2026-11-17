@@ -1,7 +1,7 @@
 {% extends '@WebProfiler/Profiler/layout.html.twig' %}
 
 {% block toolbar %}
-    {% if collector.fastCount > 0 or collector.fallbackCount > 0 %}
+    {% if collector.fastCount > 0 or collector.fallbackCount > 0 or collector.ignoredMapping is not empty %}
         {% set icon %}
             <span class="sf-toolbar-label">KCN</span>
             <span class="sf-toolbar-value">{{ collector.fastCount }}</span>
@@ -19,14 +19,18 @@
                 <b>Missed the fast path</b>
                 <span class="sf-toolbar-status{{ collector.fallbackCount > 0 ? ' sf-toolbar-status-yellow' }}">{{ collector.fallbackCount }}</span>
             </div>
+            <div class="sf-toolbar-info-piece">
+                <b>Ignored serializer mapping</b>
+                <span class="sf-toolbar-status{{ collector.ignoredMapping is not empty ? ' sf-toolbar-status-yellow' }}">{{ collector.ignoredMapping|length }}</span>
+            </div>
         {% endset %}
 
-        {{ include('@WebProfiler/Profiler/toolbar_item.html.twig', { link: profiler_url, status: collector.fallbackCount > 0 ? 'yellow' : '' }) }}
+        {{ include('@WebProfiler/Profiler/toolbar_item.html.twig', { link: profiler_url, status: collector.hasWarning ? 'yellow' : '' }) }}
     {% endif %}
 {% endblock %}
 
 {% block menu %}
-    <span class="label{{ collector.fallbackCount > 0 ? ' label-status-warning' }}{{ collector.fastCount == 0 and collector.fallbackCount == 0 ? ' disabled' }}">
+    <span class="label{{ collector.hasWarning ? ' label-status-warning' }}{{ collector.fastCount == 0 and not collector.hasWarning ? ' disabled' }}">
         <span class="icon">{{ source('@WebProfiler/Icon/serializer.svg', ignore_missing = true) }}</span>
         <strong>Self-Aware Norm.</strong>
         {% if collector.fallbackCount > 0 %}
@@ -146,6 +150,34 @@
                         <td>${{ row.parameter }}</td>
                         <td>{{ row.type }}</td>
                         <td>{{ row.reason }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+    <h3>Ignored serializer mapping</h3>
+    <p>
+        The fallback PropertyNormalizer is built without class metadata factory and the KnownConstructionNormalizer reads no mapping, so
+        these attributes on the classes of the request are ignored.
+    </p>
+    {% if collector.ignoredMapping is empty %}
+        <div class="empty"><p>No serializer mapping on the classes of the request.</p></div>
+    {% else %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Class</th>
+                    <th>Member</th>
+                    <th>Attribute</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in collector.ignoredMapping %}
+                    <tr>
+                        <td>{{ row.class }}</td>
+                        <td>{{ row.member }}</td>
+                        <td>{{ row.attribute }}</td>
                     </tr>
                 {% endfor %}
             </tbody>

@@ -39,6 +39,14 @@ final class KnownConstructionNormalizerDataCollector extends AbstractDataCollect
     public const string NAME = 'self_aware_normalizers';
     public const string TEMPLATE = '@SelfAwareNormalizers/Collector/known_construction_normalizer.html.twig';
 
+    /**
+     * Namespaces of the mapping attributes of the serializer (Annotation is the one before Symfony 7).
+     */
+    private const array SERIALIZER_MAPPING_NAMESPACES = [
+        'Symfony\\Component\\Serializer\\Attribute\\',
+        'Symfony\\Component\\Serializer\\Annotation\\',
+    ];
+
     public const string KIND_RUNTIME_FALLBACK = 'runtime fallback';
     public const string KIND_NO_PLAN = 'no plan';
     public const string KIND_CLAIMED = 'claimed by another normalizer';
@@ -142,7 +150,15 @@ final class KnownConstructionNormalizerDataCollector extends AbstractDataCollect
 
         $plansFromMemory = array_values(array_diff($plannedClasses, array_keys($recorded['builtPlans']), $recorded['plansLoadedFromPool']));
 
+        $recordedClasses = array_unique(array_merge(
+            ...array_map(array_keys(...), array_values($recorded['handledByPlan'])),
+            ...array_map(array_keys(...), array_values($recorded['fallbacks'])),
+            ...array_map(array_keys(...), array_values($recorded['notSupported'])),
+        ));
+        sort($recordedClasses);
+
         $this->data = [
+            'ignoredMapping' => self::serializerMapping($recordedClasses),
             'summary' => $summary,
             'missed' => $missed,
             'byDesign' => $byDesign,
@@ -161,6 +177,60 @@ final class KnownConstructionNormalizerDataCollector extends AbstractDataCollect
                 $this->knownConstructionNormalizer->acceptedContextOptions(),
             ),
         ];
+    }
+
+    /**
+     * The serializer mapping attributes on the classes, their properties and methods: the fallback PropertyNormalizer is built without
+     * class metadata factory (and the KnownConstructionNormalizer reads no mapping either), so they are ignored.
+     *
+     * @param list<string> $classes
+     *
+     * @return list<array{class: string, member: string, attribute: string}>
+     */
+    private static function serializerMapping(array $classes): array
+    {
+        $mapping = [];
+        foreach ($classes as $class) {
+            if (!class_exists($class)) {
+                continue;
+            }
+
+            $reflectionClass = new \ReflectionClass($class);
+            $members = [
+                'class' => $reflectionClass,
+            ];
+            foreach ($reflectionClass->getProperties() as $property) {
+                $members[sprintf('$%s', $property->name)] = $property;
+            }
+            foreach ($reflectionClass->getMethods() as $method) {
+                $members[sprintf('%s()', $method->name)] = $method;
+            }
+
+            foreach ($members as $member => $reflection) {
+                foreach ($reflection->getAttributes() as $attribute) {
+                    if (self::isSerializerMappingAttribute($attribute->getName())) {
+                        $mapping[] = [
+                            'class' => $class,
+                            'member' => $member,
+                            'attribute' => sprintf('#[%s]', $attribute->getName()),
+                        ];
+                    }
+                }
+            }
+        }
+
+        return $mapping;
+    }
+
+    private static function isSerializerMappingAttribute(string $attribute): bool
+    {
+        foreach (self::SERIALIZER_MAPPING_NAMESPACES as $namespace) {
+            if (str_starts_with($attribute, $namespace)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     #[\Override]
@@ -202,6 +272,24 @@ final class KnownConstructionNormalizerDataCollector extends AbstractDataCollect
                 : $row['count'],
             $this->getMissed(),
         ));
+    }
+
+    /**
+     * @return list<array{class: string, member: string, attribute: string}>
+     */
+    public function getIgnoredMapping(): array
+    {
+        /** @var list<array{class: string, member: string, attribute: string}> */
+        return $this->data['ignoredMapping'] ?? [];
+    }
+
+    /**
+     * Whether the toolbar and the menu show a warning: objects that missed the fast path or ignored serializer mapping.
+     */
+    public function hasWarning(): bool
+    {
+        return $this->getFallbackCount() > 0
+            || $this->getIgnoredMapping() !== [];
     }
 
     /**

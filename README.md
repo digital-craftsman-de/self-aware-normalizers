@@ -269,7 +269,7 @@ Every class that reaches the `KnownConstructionNormalizer` gets a plan attempt. 
 - it doesn't reference itself (directly or through other classes),
 - no normalizer in front of the `KnownConstructionNormalizer` may handle it.
 
-Classes with a mutable (not `readonly`) property are only denormalized through their plan. Interfaces, enums, abstract classes, internal classes, exceptions, anonymous classes and self-aware value objects never get a plan. Only the formats `null` and `json` are supported. As the fallback is built without class metadata factory, **serializer mapping is ignored** for all classes handled by it or by the `KnownConstructionNormalizer` (attributes like `#[Groups]`, `#[SerializedName]` or `#[Ignore]` and mapping files). `SerializerMappingIsNotUsedTestCase` (see below) fails when they are used.
+Classes with a mutable (not `readonly`) property are only denormalized through their plan. Interfaces, enums, abstract classes, internal classes, exceptions, anonymous classes and self-aware value objects never get a plan. Only the formats `null` and `json` are supported. As the fallback is built without class metadata factory, **serializer mapping is ignored** for all classes handled by it or by the `KnownConstructionNormalizer` (attributes like `#[Groups]`, `#[SerializedName]` or `#[Ignore]` and mapping files). The [profiler panel](#profiler-panel) lists the attributes it finds on the classes of a request.
 
 ### Setup
 
@@ -374,26 +374,10 @@ In debug mode with the Symfony profiler, the panel "Self-Aware Normalizers" (men
 - every class that missed the fast path with the reason and a hint how to fix it: no plan (e.g. "property has hooks: $name"), a context option or format that isn't supported, a fallback while (de)normalizing (e.g. "Page::$count: int expected, string given") or another normalizer that claims it,
 - the values the plans send through the serializer (and why),
 - the plans built in the request (with the time), loaded from the pool or kept in memory,
+- the serializer mapping that is ignored: the attributes of `Symfony\Component\Serializer\Attribute` (e.g. `#[Groups]`, `#[SerializedName]`, `#[Ignore]`) on the classes of the request, their properties and methods, which neither the `KnownConstructionNormalizer` nor the fallback reads (it's built without class metadata factory),
 - the configuration: fallback, the normalizers of the serializer in their order and the accepted context options.
 
-Use it to find the classes that miss the fast path. Without debug mode or profiler, nothing is registered or recorded.
-
-### Serializer mapping test for your application
-`SerializerMappingIsNotUsedTestCase` checks that no class of your source and no non-dev vendor package uses serializer attributes and that no mapping file is registered:
-
-```php
-final class SerializerMappingIsNotUsedTest extends SerializerMappingIsNotUsedTestCase
-{
-    protected static function sourceDirectories(): array
-    {
-        return [
-            dirname(__DIR__, 2).'/src',
-        ];
-    }
-}
-```
-
-Vendor files that use the attributes for classes that are never serialized can be allowed through `allowedVendorFiles()`.
+Found mapping marks the toolbar and the menu entry as a warning as well. Use it to find the classes that miss the fast path. Without debug mode or profiler, nothing is registered or recorded.
 
 ## Isn't normalization in the class a bad practice?
 

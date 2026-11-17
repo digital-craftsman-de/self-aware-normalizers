@@ -3,8 +3,7 @@
 ## 1.5.0
 
 - Added the optional `KnownConstructionNormalizer` (`self_aware_normalizers.known_construction_normalizer`, disabled by default): a fast path in front of the `PropertyNormalizer` for plain constructor-promoted classes with exactly the same results. Its fallback is validated when the container is built (exactly the `PropertyNormalizer`, every unknown constructor argument in its default value), it's only used with context options on an allowlist (extendable through `accepted_context_keys`), and classes a normalizer in front of it may handle are never handled inline (unless the normalizer is declared in `neutral_normalizers`).
-- Added the profiler panel "Self-Aware Normalizers", which shows the classes that missed the fast path of the `KnownConstructionNormalizer` and why.
-- Added `SerializerMappingIsNotUsedTestCase` for the tests of applications using the `KnownConstructionNormalizer`.
+- Added the profiler panel "Self-Aware Normalizers", which shows the classes that missed the fast path of the `KnownConstructionNormalizer` and why, and serializer mapping that is ignored.
 
 ## 1.4.0
 

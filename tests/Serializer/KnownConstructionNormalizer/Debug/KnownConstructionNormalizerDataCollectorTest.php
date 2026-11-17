@@ -20,6 +20,7 @@ use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixtu
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Weight;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Profiler\LaterBundle;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Profiler\LaterDataCollector;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Profiler\MappedReadModel;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\TestKernel;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -29,6 +30,10 @@ use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Bundle\BundleInterface;
+use Symfony\Component\Serializer\Attribute\Context;
+use Symfony\Component\Serializer\Attribute\Groups;
+use Symfony\Component\Serializer\Attribute\Ignore;
+use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Serializer\Encoder\JsonEncoder;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
@@ -364,6 +369,67 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
         self::assertSame(KnownConstructionNormalizerDataCollector::TEMPLATE, KnownConstructionNormalizerDataCollector::getTemplate());
     }
 
+    #[Test]
+    public function ignored_serializer_mapping_of_the_classes_of_the_request_is_listed(): void
+    {
+        // -- Arrange
+        $kernel = $this->bootedKernel('profiler_mapping', true);
+        $serializer = self::serializer($kernel);
+        $collector = self::collector($kernel);
+
+        // -- Act
+        $serializer->normalize(new MappedReadModel('Example', 1));
+        $serializer->normalize(new Leaf('Example'));
+        $collector->collect(new Request(), new Response());
+
+        // -- Assert
+        self::assertSame(
+            [
+                [
+                    'class' => MappedReadModel::class,
+                    'member' => 'class',
+                    'attribute' => sprintf('#[%s]', Context::class),
+                ],
+                [
+                    'class' => MappedReadModel::class,
+                    'member' => '$name',
+                    'attribute' => sprintf('#[%s]', Groups::class),
+                ],
+                [
+                    'class' => MappedReadModel::class,
+                    'member' => '$name',
+                    'attribute' => sprintf('#[%s]', SerializedName::class),
+                ],
+                [
+                    'class' => MappedReadModel::class,
+                    'member' => 'label()',
+                    'attribute' => sprintf('#[%s]', Ignore::class),
+                ],
+            ],
+            $collector->getIgnoredMapping(),
+        );
+        // The classes take the fast path, the mapping alone is a warning
+        self::assertSame(0, $collector->getFallbackCount());
+        self::assertTrue($collector->hasWarning());
+    }
+
+    #[Test]
+    public function without_mapping_and_misses_there_is_no_warning(): void
+    {
+        // -- Arrange
+        $kernel = $this->bootedKernel('profiler_no_warning', true);
+        $serializer = self::serializer($kernel);
+        $collector = self::collector($kernel);
+
+        // -- Act
+        $serializer->normalize(new Leaf('Example'));
+        $collector->collect(new Request(), new Response());
+
+        // -- Assert
+        self::assertSame([], $collector->getIgnoredMapping());
+        self::assertFalse($collector->hasWarning());
+    }
+
     /**
      * The profiler orders panels of the same priority by their registration, which follows the order of the bundles.
      */
@@ -446,6 +512,7 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
         self::assertStringContainsString('$moments', $html);
         self::assertStringContainsString('built in', $html);
         self::assertStringContainsString('deserialization_path', $html);
+        self::assertStringContainsString('Ignored serializer mapping', $html);
     }
 
     // -- Helpers

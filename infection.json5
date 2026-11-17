@@ -6,10 +6,6 @@
   "source": {
     "directories": [
       "src"
-    ],
-    // Test cases for applications, test tooling like the tests themselves
-    "excludes": [
-      "Testing"
     ]
   },
   // Known construction normalizer: by design, a mistake of the plan only makes a class slower, never different, as anything the plan doesn't handle
