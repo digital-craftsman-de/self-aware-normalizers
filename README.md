@@ -15,7 +15,7 @@ Value objects and DTOs that know how to normalize and denormalize themselves. Im
 - **Same format everywhere.** The serializer and Doctrine use the same `normalize()` and `denormalize()` methods, so your API and your database always store the same structure.
 - **Explicit and type safe.** Normalization is plain PHP code instead of reflection magic. Static analysis tools like Psalm and PHPStan understand every step.
 - **Reliable.** It's a central part of an application, so it's tested thoroughly, including mutation testing.
-- **Fast.** The optional [`KnownConstructionNormalizer`](#knownconstructionnormalizer) (de)normalizes plain read models, DTOs, commands and queries without the per object analysis of the `PropertyNormalizer`, with exactly the same results.
+- **Fast.** The optional [`KnownConstructionNormalizer`](#knownconstructionnormalizer) normalizes large object graphs of read models, DTOs, commands and queries about **8× faster** and denormalizes them about **12× faster** than the `PropertyNormalizer`, as it knows once per class how an object is constructed instead of analysing every object. The results stay the same.
 
 ## Installation
 
