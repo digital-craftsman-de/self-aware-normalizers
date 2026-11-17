@@ -23,7 +23,7 @@
     <!-- The fixture ArrayTypeMismatch has a wrong PHPDoc type on purpose -->
     <MismatchingDocblockPropertyType>
       <errorLevel type="suppress">
-        <file name="tests/Test/PlanNormalizer/Fixture/ReadModel/fixtures.php" />
+        <file name="tests/Test/KnownConstructionNormalizer/Fixture/ReadModel/fixtures.php" />
       </errorLevel>
     </MismatchingDocblockPropertyType>
 

@@ -18,9 +18,9 @@
     "symfony/property-info": "^7.4|^8.0"
   },
   "suggest": {
-    "symfony/property-info": "Required for the plan normalizer",
-    "symfony/type-info": "Required for the plan normalizer",
-    "symfony/console": "Required for the command that lists the classes the plan normalizer can not plan",
+    "symfony/property-info": "Required for the known construction normalizer",
+    "symfony/type-info": "Required for the known construction normalizer",
+    "symfony/console": "Required for the command that lists the classes the known construction normalizer can not plan",
     "phpunit/phpunit": "Required for the test cases of DigitalCraftsman\\SelfAwareNormalizers\\Testing (^12.0|^13.0)"
   },
   "autoload": {

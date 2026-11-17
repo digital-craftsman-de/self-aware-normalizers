@@ -2,7 +2,7 @@
 
 ## From 1.4.* to 1.5.0
 
-Nothing to do. The new plan normalizer is disabled by default, see [README - Plan normalizer](./README.md#plan-normalizer) to enable it.
+Nothing to do. The new known construction normalizer is disabled by default, see [README - Known construction normalizer](./README.md#known-construction-normalizer) to enable it.
 
 ## From 1.3.* to 1.4.0
 

@@ -1,0 +1,1197 @@
+<?php
+
+declare(strict_types=1);
+
+namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer;
+
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\ArrayNormalizable;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\BoolNormalizable;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\FloatNormalizable;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizable;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizable;
+use Psr\Cache\CacheItemPoolInterface;
+use Symfony\Component\Serializer\Exception\UnsupportedException;
+use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
+use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
+use Symfony\Component\Serializer\Normalizer\DenormalizerAwareInterface;
+use Symfony\Component\Serializer\Normalizer\DenormalizerAwareTrait;
+use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
+use Symfony\Component\Serializer\Normalizer\NormalizerAwareInterface;
+use Symfony\Component\Serializer\Normalizer\NormalizerAwareTrait;
+use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
+use Symfony\Component\Serializer\Normalizer\PropertyNormalizer;
+use Symfony\Component\Serializer\Normalizer\UnwrappingDenormalizer;
+use Symfony\Component\Serializer\Serializer;
+use Symfony\Component\TypeInfo\Type;
+
+/**
+ * Fast replacement of the PropertyNormalizer for plain constructor-promoted classes (e.g. read models, DTOs, commands, queries and
+ * events). It knows in advance how each object is constructed: containers through a constructor that mirrors their promoted properties,
+ * self-aware value objects through their denormalize() / normalize(). That knowledge is precomputed per class as a plan. It produces the
+ * same results as the PropertyNormalizer, but without its per object machinery (type resolution per parameter, attribute loops, context
+ * handling, normalizer selection per value). The classes it's responsible for are configured through the scope of the PlanFactory.
+ *
+ * Per class, a plan is built once (PlanFactory): per constructor parameter the kind of value and the class to build. Denormalization
+ * still constructs every object: value objects through their static denormalize() (digital-craftsman/self-aware-normalizers), the
+ * planned class through its constructor, with the same validation as before. Normalization reads the public properties in declaration
+ * order and calls normalize() on value objects. Values of other classes go through the serializer as before.
+ *
+ * Equivalence: the plan only takes the paths on which the PropertyNormalizer would succeed with the same result (data that already has
+ * the expected type). Any other data (missing argument, wrong type, null for a non nullable parameter, a failing nested object of
+ * another class, a TypeError of the constructor) makes the object fall back to the PropertyNormalizer, which then throws its own exception
+ * with its own message and path. Exceptions of value objects and constructors are the same either way. Classes the plan can't express
+ * and contexts with options the plan doesn't implement are not supported at all, so the serializer uses the PropertyNormalizer.
+ *
+ * Must be registered between the self-aware normalizers / BackedEnumNormalizer and the PropertyNormalizer, and the PropertyNormalizer must
+ * be the fallback. The fallback must be a PropertyNormalizer without class metadata factory, name converter, class discriminator resolver
+ * and object class resolver, with the same type extractor as the PlanFactory and the same default context (the bundle validates this
+ * through the KnownConstructionNormalizerCompilerPass). Plans are kept per instance and optionally cached across requests in a PSR-6 pool.
+ *
+ * The plan mirrors internals of symfony/serializer, symfony/type-info and symfony/property-info. Instead of a version lock, anything it
+ * doesn't know leads to the PropertyNormalizer or fails the container build: context options must be on an allowlist (see
+ * ACCEPTED_CONTEXT_OPTIONS), the constructor arguments of the fallback as well (see KnownConstructionNormalizerCompilerPass). What
+ * remains is checked by the equivalence test of the application (KnownConstructionNormalizerEquivalenceTestCase) against the installed
+ * versions.
+ *
+ * @psalm-import-type ClassPlan from PlanFactory
+ * @psalm-import-type ScalarListSpec from PlanFactory
+ */
+final class KnownConstructionNormalizer implements NormalizerInterface, DenormalizerInterface, NormalizerAwareInterface, DenormalizerAwareInterface
+{
+    use DenormalizerAwareTrait;
+    use NormalizerAwareTrait;
+
+    /**
+     * Version of the plan structure, part of the cache key (together with the version of the code, see the constructor).
+     */
+    private const string PLAN_CACHE_KEY_PREFIX = 'plan-v2';
+
+    /**
+     * Context options the plan is used with, whatever their value (option => true). The plan is only used when every option of the
+     * context and of the default context is one of them, one of CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE (with that value) or one of the
+     * accepted context keys of the configuration. Any other option (e.g. one added by a later version of the serializer) makes the
+     * serializer use the PropertyNormalizer, so an option is never silently ignored. Verified against symfony/serializer 8.1.
+     */
+    private const array ACCEPTED_CONTEXT_OPTIONS = [
+        // Options of the PropertyNormalizer the plan implements itself (see normalize())
+        AbstractObjectNormalizer::SKIP_NULL_VALUES => true,
+        AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true,
+
+        // Options of the PropertyNormalizer that only change which attributes are cached (the results are the same)
+        AbstractObjectNormalizer::EXCLUDE_FROM_CACHE_KEY => true,
+
+        // Internal options the serializer and its normalizers put into the context during a (de)normalization:
+        // - cache_key: only the key of the attribute cache, the plan removes it before handing values on
+        // - deserialization_path: only the path in exceptions, which are always thrown by the PropertyNormalizer (the plan falls back)
+        // - key_type, value_type (ArrayDenormalizer, validateAndDenormalize()): the types of a collection, only read for collections and
+        //   null data, which the plan doesn't denormalize itself, or set by the plan itself for the collections it hands on
+        // - _read_attributes: set by every object normalizer before it reads it
+        // - circular_reference_limit_counters: counters of the object normalizers the plan is nested in, handed on as is
+        // - debug_trace_id (TraceableSerializer, in debug mode): only used for the profiler
+        'cache_key' => true,
+        'deserialization_path' => true,
+        'key_type' => true,
+        'value_type' => true,
+        '_read_attributes' => true,
+        'circular_reference_limit_counters' => true,
+        'debug_trace_id' => true,
+
+        // Options the serializer replaces with the collectors of the errors (not_normalizable_value_exceptions and
+        // extra_attributes_exceptions, which aren't accepted) before a denormalization. Not read by any normalizer.
+        'collect_denormalization_errors' => true,
+        'collect_extra_attributes_errors' => true,
+
+        // Options of other normalizers. The plan hands the values of other classes on to the serializer with the context as is, like
+        // the PropertyNormalizer, so these normalizers get the same options either way.
+        'datetime_format' => true, // DateTimeNormalizer
+        'datetime_timezone' => true,
+        'datetime_cast' => true,
+        'datetime_force_timezone' => true,
+        'dateinterval_format' => true, // DateIntervalNormalizer
+        'uid_normalization_format' => true, // UidNormalizer
+        'allow_invalid_values' => true, // BackedEnumNormalizer
+        'translatable_normalization_locale' => true, // TranslatableNormalizer
+        'exception' => true, // ProblemNormalizer (ErrorRenderer)
+        'debug' => true,
+        'instance' => true, // ConstraintViolationListNormalizer, ProblemNormalizer, FormErrorNormalizer
+        'payload_fields' => true,
+        'status' => true,
+        'status_code' => true,
+        'title' => true,
+        'type' => true,
+        'require_snake_case_properties' => true, // Name converters, the fallback has none
+        'require_camel_case_properties' => true,
+        'messenger_serialization' => true, // Serializer of symfony/messenger, only a marker
+
+        // Options of the encoders and decoders, which are part of the context of the (de)normalization of serialize() and
+        // deserialize(). Not read by any normalizer.
+        'json_encode_options' => true, // JsonEncode
+        'json_decode_associative' => true, // JsonDecode
+        'json_decode_detailed_errors' => true,
+        'json_decode_options' => true,
+        'json_decode_recursion_depth' => true,
+        'csv_delimiter' => true, // CsvEncoder
+        'csv_enclosure' => true,
+        'csv_key_separator' => true,
+        'csv_headers' => true,
+        'csv_escape_formulas' => true,
+        'csv_end_of_line' => true,
+        'no_headers' => true,
+        'as_collection' => true, // CsvEncoder, XmlEncoder
+        'decoder_ignored_node_types' => true, // XmlEncoder
+        'encoder_ignored_node_types' => true,
+        'xml_encoding' => true,
+        'xml_format_output' => true,
+        'load_options' => true,
+        'save_options' => true,
+        'remove_empty_tags' => true,
+        'xml_root_node_name' => true,
+        'xml_standalone' => true,
+        'xml_type_cast_attributes' => true,
+        'xml_version' => true,
+        'cdata_wrapping' => true,
+        'cdata_wrapping_name_pattern' => true,
+        'cdata_wrapping_pattern' => true,
+        'ignore_empty_attributes' => true,
+        'preserve_numeric_keys' => true,
+        'yaml_indentation' => true, // YamlEncoder (its preserve_empty_objects is the one above)
+        'yaml_inline' => true,
+        'yaml_indent' => true,
+        'yaml_flags' => true,
+    ];
+
+    /**
+     * Options of the PropertyNormalizer the plan is only used with when their effective value (context before default context, null
+     * like not set) is the one that keeps the default behaviour, which the plan implements. Option => accepted value.
+     */
+    private const array CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE = [
+        AbstractNormalizer::ALLOW_EXTRA_ATTRIBUTES => true,
+        AbstractNormalizer::REQUIRE_ALL_PROPERTIES => false,
+        AbstractNormalizer::FILTER_BOOL => false,
+        AbstractObjectNormalizer::DISABLE_TYPE_ENFORCEMENT => false,
+        AbstractObjectNormalizer::ENABLE_TYPE_CONVERSION => false,
+        AbstractObjectNormalizer::DEEP_OBJECT_TO_POPULATE => false,
+        AbstractObjectNormalizer::ENABLE_MAX_DEPTH => false,
+        // The plan only reads objects built through their constructor, whose promoted properties are always initialized
+        AbstractObjectNormalizer::SKIP_UNINITIALIZED_VALUES => true,
+        Serializer::EMPTY_ARRAY_AS_OBJECT => false,
+    ];
+
+    /**
+     * Options the PropertyNormalizer reads that change its result and that the plan doesn't implement. Never accepted, also not through
+     * the accepted context keys of the configuration. Other options that aren't accepted (e.g. the ones of the circular reference
+     * handling, which the plan doesn't implement either) can be accepted there.
+     */
+    public const array NOT_IMPLEMENTED_CONTEXT_OPTIONS = [
+        AbstractNormalizer::OBJECT_TO_POPULATE,
+        AbstractNormalizer::GROUPS,
+        AbstractNormalizer::ATTRIBUTES,
+        AbstractNormalizer::IGNORED_ATTRIBUTES,
+        AbstractNormalizer::CALLBACKS,
+        AbstractNormalizer::DEFAULT_CONSTRUCTOR_ARGUMENTS,
+        AbstractObjectNormalizer::MAX_DEPTH_HANDLER,
+        PropertyNormalizer::NORMALIZE_VISIBILITY,
+        UnwrappingDenormalizer::UNWRAP_PATH,
+        // Collecting errors (COLLECT_DENORMALIZATION_ERRORS / COLLECT_EXTRA_ATTRIBUTES_ERRORS) and union members
+        'not_normalizable_value_exceptions',
+        'extra_attributes_exceptions',
+        '_union_member',
+    ];
+
+    private const int NORMALIZATION_VALUE_OBJECT = 1;
+    private const int NORMALIZATION_PLANNED = 2;
+    private const int NORMALIZATION_SERIALIZER = 3;
+
+    /**
+     * @var array<string, ClassPlan|false>
+     */
+    private array $plans = [];
+
+    /**
+     * Class => class, in the order the plans are started (a set, only the keys are used).
+     *
+     * @var array<string, string>
+     */
+    private array $plansInProgress = [];
+
+    /**
+     * @var array<class-string, int>
+     */
+    private array $normalizationKinds = [];
+
+    /**
+     * @var array<string, string> Classes that reference themselves (directly or through other classes), class => class (a set)
+     */
+    private array $recursiveClasses = [];
+
+    /**
+     * Accepted context options (built-in and configured), option => true.
+     *
+     * @var array<array-key, true>
+     */
+    private readonly array $acceptedContextOptions;
+
+    /**
+     * Whether every option of the default context is known (accepted or with an accepted value).
+     */
+    private readonly bool $isDefaultContextKnown;
+
+    /**
+     * Options of the default context with a value that isn't accepted, which the context must overrule, option => option.
+     *
+     * @var array<string, string>
+     */
+    private readonly array $defaultContextOptionsToOverrule;
+
+    /**
+     * @param string               $planCacheVersion    Version of the code (e.g. the build id of the container), part of the cache key, so a
+     *                                                  cached plan never outlives the code it was built from
+     * @param array<string, mixed> $defaultContext
+     * @param list<string>         $acceptedContextKeys Further context options that don't change the result of the PropertyNormalizer
+     *                                                  (guaranteed by the application), e.g. options of its own normalizers. Must be
+     *                                                  acceptable (see isContextOptionAcceptable(), validated by the configuration).
+     */
+    public function __construct(
+        private readonly PlanFactory $planFactory,
+        private readonly NormalizerInterface & DenormalizerInterface $fallbackNormalizer,
+        private readonly ?CacheItemPoolInterface $planCache,
+        private readonly string $planCacheVersion,
+        private readonly array $defaultContext = [],
+        private readonly array $acceptedContextKeys = [],
+    ) {
+        $this->acceptedContextOptions = self::ACCEPTED_CONTEXT_OPTIONS + array_fill_keys($acceptedContextKeys, true);
+
+        $this->isDefaultContextKnown = array_diff_key($defaultContext, $this->acceptedContextOptions, self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE) === [];
+
+        $defaultContextOptionsToOverrule = [];
+        foreach (array_intersect_key($defaultContext, self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE) as $option => $value) {
+            if ($value !== null
+                && $value !== self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE[$option]
+            ) {
+                $defaultContextOptionsToOverrule[$option] = $option;
+            }
+        }
+        $this->defaultContextOptionsToOverrule = $defaultContextOptionsToOverrule;
+    }
+
+    /**
+     * Whether an option can be accepted through the configuration (see NOT_IMPLEMENTED_CONTEXT_OPTIONS).
+     */
+    public static function isContextOptionAcceptable(string $option): bool
+    {
+        return !in_array($option, self::NOT_IMPLEMENTED_CONTEXT_OPTIONS, true)
+            && !array_key_exists($option, self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE);
+    }
+
+    /**
+     * Not cacheable, as the support depends on the data and the context.
+     *
+     * @return array<string, bool|null>
+     */
+    #[\Override]
+    public function getSupportedTypes(?string $format): array
+    {
+        return [
+            'object' => false,
+        ];
+    }
+
+    // -- Denormalization
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    #[\Override]
+    public function supportsDenormalization(
+        mixed $data,
+        string $type,
+        ?string $format = null,
+        array $context = [],
+    ): bool {
+        return is_array($data)
+            && self::isFormatSupportedForDenormalization($format)
+            && $this->plan($type) !== false
+            && $this->isContextSupported($context);
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    #[\Override]
+    public function denormalize(
+        mixed $data,
+        string $type,
+        ?string $format = null,
+        array $context = [],
+    ): mixed {
+        $plan = $this->plans[$type] ?? $this->plan($type);
+        if (!is_array($data)
+            || $plan === false
+        ) {
+            return $this->fallbackNormalizer->denormalize($data, $type, $format, $context);
+        }
+
+        /**
+         * @var class-string $type Only classes in scope have a plan
+         */
+        try {
+            return $this->build(
+                $data,
+                $type,
+                $plan,
+                self::isIntCastToFloat($format),
+                $format,
+                $context,
+            );
+        } catch (Exception\FallbackIsRequired) {
+            return $this->fallbackNormalizer->denormalize($data, $type, $format, $context);
+        }
+    }
+
+    /**
+     * @param array<array-key, mixed> $data
+     * @param class-string            $class
+     * @param ClassPlan               $plan
+     * @param array<string, mixed>    $context
+     *
+     * @throws Exception\FallbackIsRequired
+     */
+    private function build(
+        array $data,
+        string $class,
+        array $plan,
+        bool $isIntCastToFloat,
+        ?string $format,
+        array $context,
+    ): object {
+        $arguments = [];
+        foreach ($plan['parameters'] as [$name, $kind, $targetClass, $allowsNull, $hasDefault, $default, $extra]) {
+            if (!array_key_exists($name, $data)) {
+                // Same order as AbstractNormalizer::instantiateObject(): default value, then null for a nullable parameter
+                if ($hasDefault) {
+                    $arguments[$name] = $default;
+                    continue;
+                }
+                if ($allowsNull) {
+                    $arguments[$name] = null;
+                    continue;
+                }
+
+                throw new Exception\FallbackIsRequired();
+            }
+
+            $value = $data[$name];
+            if ($value === null) {
+                if ($allowsNull) {
+                    $arguments[$name] = null;
+                    continue;
+                }
+
+                throw new Exception\FallbackIsRequired();
+            }
+
+            /**
+             * @var class-string $targetClass Only used for the kinds with a class
+             */
+            $arguments[$name] = match ($kind) {
+                ParameterKind::STRING => is_string($value)
+                    ? $value
+                    : throw new Exception\FallbackIsRequired(),
+                ParameterKind::INT => is_int($value)
+                    ? $value
+                    : throw new Exception\FallbackIsRequired(),
+                ParameterKind::FLOAT => self::denormalizeFloat($value, $isIntCastToFloat),
+                ParameterKind::BOOL => is_bool($value)
+                    ? $value
+                    : throw new Exception\FallbackIsRequired(),
+                ParameterKind::MIXED => $value,
+                ParameterKind::ARRAY => is_array($value)
+                    ? $value
+                    : throw new Exception\FallbackIsRequired(),
+                ParameterKind::SCALAR_LIST => is_array($value)
+                    /**
+                     * @var ScalarListSpec $extra
+                     */
+                    ? self::validateScalarList($value, $extra, $isIntCastToFloat)
+                    : throw new Exception\FallbackIsRequired(),
+                ParameterKind::VALUE_OBJECT_STRING,
+                ParameterKind::VALUE_OBJECT_INT,
+                ParameterKind::VALUE_OBJECT_FLOAT,
+                ParameterKind::VALUE_OBJECT_BOOL,
+                ParameterKind::VALUE_OBJECT_ARRAY => self::denormalizeValueObject($value, $kind, $targetClass),
+                ParameterKind::NESTED => is_array($value)
+                    ? $this->buildNested($value, $targetClass, $isIntCastToFloat, $format, $context)
+                    : throw new Exception\FallbackIsRequired(),
+                ParameterKind::OBJECT => $this->denormalizeThroughSerializer(
+                    $value,
+                    $targetClass,
+                    $format,
+                    self::contextOfObject($value, $extra === true, $context),
+                ),
+                ParameterKind::VALUE_OBJECT_LIST => is_array($value)
+                    /**
+                     * @var list{0: int, 1: int} $extra
+                     */
+                    ? self::denormalizeValueObjectList($value, $targetClass, $extra[0], $extra[1])
+                    : throw new Exception\FallbackIsRequired(),
+                ParameterKind::NESTED_LIST => is_array($value)
+                    /**
+                     * @var non-empty-list<int> $extra
+                     */
+                    ? $this->buildNestedList($value, $targetClass, $extra, $isIntCastToFloat, $format, $context)
+                    : throw new Exception\FallbackIsRequired(),
+                ParameterKind::OBJECT_LIST => is_array($value)
+                    /**
+                     * @var list{0: Type, 1: Type, 2: string} $extra
+                     */
+                    ? $this->denormalizeThroughSerializer(
+                        $value,
+                        $targetClass.$extra[2],
+                        $format,
+                        [
+                            'key_type' => $extra[0],
+                            'value_type' => $extra[1],
+                        ] + $context,
+                    )
+                    : throw new Exception\FallbackIsRequired(),
+            };
+        }
+
+        // Named arguments (like the PropertyNormalizer), so a plan that doesn't match the constructor (anymore) fails instead of passing
+        // values to the wrong parameters
+        try {
+            return new $class(...$arguments);
+        } catch (\Error) {
+            // A TypeError or an unknown or missing parameter: the PropertyNormalizer reports it through reflection, with its own message
+            throw new Exception\FallbackIsRequired();
+        }
+    }
+
+    /**
+     * @param array<array-key, mixed> $data
+     * @param class-string            $class
+     * @param array<string, mixed>    $context
+     *
+     * @throws Exception\FallbackIsRequired
+     */
+    private function buildNested(
+        array $data,
+        string $class,
+        bool $isIntCastToFloat,
+        ?string $format,
+        array $context,
+    ): object {
+        $plan = ($this->plans[$class] ?? $this->plan($class)) ?: throw new Exception\FallbackIsRequired();
+
+        return $this->build($data, $class, $plan, $isIntCastToFloat, $format, $context);
+    }
+
+    /**
+     * Like the ArrayDenormalizer with each element denormalized by the known construction normalizer. A nested collection (X[][], ...) is denormalized
+     * level by level like by the ArrayDenormalizer: every element of an outer level must be an array, the keys of each level are checked
+     * against the KeyCheck the ArrayDenormalizer applies there (see PlanFactory::classifyCollectionOfObjects() for nullable inner levels).
+     *
+     * @param array<array-key, mixed> $data
+     * @param class-string            $class
+     * @param non-empty-list<int>     $keyChecks KeyCheck per level, outer level first
+     * @param array<string, mixed>    $context
+     *
+     * @return array<array-key, mixed>
+     *
+     * @throws Exception\FallbackIsRequired
+     */
+    private function buildNestedList(
+        array $data,
+        string $class,
+        array $keyChecks,
+        bool $isIntCastToFloat,
+        ?string $format,
+        array $context,
+    ): array {
+        $plan = ($this->plans[$class] ?? $this->plan($class)) ?: throw new Exception\FallbackIsRequired();
+
+        return $this->buildNestedListLevel($data, $class, $plan, $keyChecks, 0, $isIntCastToFloat, $format, $context);
+    }
+
+    /**
+     * @param array<array-key, mixed> $data
+     * @param class-string            $class
+     * @param ClassPlan               $plan
+     * @param non-empty-list<int>     $keyChecks
+     * @param array<string, mixed>    $context
+     *
+     * @return array<array-key, mixed>
+     *
+     * @throws Exception\FallbackIsRequired
+     */
+    private function buildNestedListLevel(
+        array $data,
+        string $class,
+        array $plan,
+        array $keyChecks,
+        int $level,
+        bool $isIntCastToFloat,
+        ?string $format,
+        array $context,
+    ): array {
+        $keyCheck = $keyChecks[$level];
+        $isInnermostLevel = !isset($keyChecks[$level + 1]);
+        foreach ($data as $key => $element) {
+            if (!is_array($element)) {
+                throw new Exception\FallbackIsRequired();
+            }
+
+            self::validateKey($key, $keyCheck);
+
+            $data[$key] = $isInnermostLevel
+                ? $this->build($element, $class, $plan, $isIntCastToFloat, $format, $context)
+                : $this->buildNestedListLevel($element, $class, $plan, $keyChecks, $level + 1, $isIntCastToFloat, $format, $context);
+        }
+
+        return $data;
+    }
+
+    /**
+     * Like AbstractObjectNormalizer::validateAndDenormalize() for an object of a nullable (union) type: a scalar is denormalized as union
+     * member, so an object normalizer throws instead of building an object from it.
+     *
+     * @param array<string, mixed> $context
+     *
+     * @return array<string, mixed>
+     */
+    private static function contextOfObject(
+        mixed $value,
+        bool $isNullable,
+        array $context,
+    ): array {
+        return $isNullable
+            && !is_array($value)
+            && !is_object($value)
+                ? ['_union_member' => true] + $context
+                : $context;
+    }
+
+    /**
+     * Same as the self-aware normalizers, with the type of the value checked before, so that a TypeError is thrown by the
+     * PropertyNormalizer path with its message.
+     *
+     * @param class-string $class
+     *
+     * @throws Exception\FallbackIsRequired
+     */
+    private static function denormalizeValueObject(
+        mixed $value,
+        int $kind,
+        string $class,
+    ): object {
+        try {
+            return self::denormalizeValueObjectOfKind($value, $kind, $class);
+        } catch (UnsupportedException) {
+            // AbstractObjectNormalizer::validateAndDenormalize() swallows it for a nullable (union) type and throws its own exception
+            // instead. Every other exception of the serializer (and any other exception) is thrown by the PropertyNormalizer as is,
+            // with or without a nullable type, so it's left to bubble up the same way.
+            throw new Exception\FallbackIsRequired();
+        }
+    }
+
+    /**
+     * @param class-string $class
+     *
+     * @throws Exception\FallbackIsRequired
+     */
+    private static function denormalizeValueObjectOfKind(
+        mixed $value,
+        int $kind,
+        string $class,
+    ): object {
+        return match ($kind) {
+            /**
+             * @var class-string<StringNormalizable> $class
+             */
+            ParameterKind::VALUE_OBJECT_STRING => is_string($value)
+                ? $class::denormalize($value)
+                : throw new Exception\FallbackIsRequired(),
+            /**
+             * @var class-string<IntNormalizable> $class
+             */
+            ParameterKind::VALUE_OBJECT_INT => is_int($value)
+                ? $class::denormalize($value)
+                : throw new Exception\FallbackIsRequired(),
+            /**
+             * @var class-string<FloatNormalizable> $class
+             */
+            ParameterKind::VALUE_OBJECT_FLOAT => is_float($value)
+            || is_int($value)
+                ? $class::denormalize($value)
+                : throw new Exception\FallbackIsRequired(),
+            /**
+             * @var class-string<BoolNormalizable> $class
+             */
+            ParameterKind::VALUE_OBJECT_BOOL => is_bool($value)
+                ? $class::denormalize($value)
+                : throw new Exception\FallbackIsRequired(),
+            /**
+             * @var class-string<ArrayNormalizable> $class
+             */
+            ParameterKind::VALUE_OBJECT_ARRAY => is_array($value)
+                ? $class::denormalize($value)
+                : throw new Exception\FallbackIsRequired(),
+        };
+    }
+
+    /**
+     * Like the ArrayDenormalizer with the elements denormalized by the self-aware normalizers (which keep null as null).
+     *
+     * @param array<array-key, mixed> $data
+     * @param class-string            $class
+     *
+     * @return array<array-key, ?object>
+     *
+     * @throws Exception\FallbackIsRequired
+     */
+    private static function denormalizeValueObjectList(
+        array $data,
+        string $class,
+        int $kind,
+        int $keyCheck,
+    ): array {
+        foreach ($data as $key => $element) {
+            self::validateKey($key, $keyCheck);
+
+            $data[$key] = $element === null
+                ? null
+                : self::denormalizeValueObject($element, $kind, $class);
+        }
+
+        /**
+         * @var array<array-key, ?object>
+         */
+        return $data;
+    }
+
+    /**
+     * Same as AbstractObjectNormalizer::validateAndDenormalize() for any other class. A failure is reproduced by the PropertyNormalizer,
+     * so the exception carries its deserialization path.
+     *
+     * @param array<string, mixed> $context
+     *
+     * @throws Exception\FallbackIsRequired
+     */
+    private function denormalizeThroughSerializer(
+        mixed $value,
+        string $type,
+        ?string $format,
+        array $context,
+    ): mixed {
+        if ($value instanceof $type) {
+            return $value;
+        }
+
+        unset($context['cache_key']);
+
+        try {
+            if ($this->denormalizer->supportsDenormalization($value, $type, $format, $context)) {
+                return $this->denormalizer->denormalize($value, $type, $format, $context);
+            }
+        } catch (\Throwable) {
+            throw new Exception\FallbackIsRequired();
+        }
+
+        throw new Exception\FallbackIsRequired();
+    }
+
+    /**
+     * Same as the scalar collection handling of AbstractObjectNormalizer::validateAndDenormalize(): elements of the expected type are
+     * kept, an int becomes a float with a JSON format.
+     *
+     * @param array<array-key, mixed> $data
+     * @param ScalarListSpec          $spec
+     *
+     * @return array<array-key, mixed>
+     *
+     * @throws Exception\FallbackIsRequired
+     */
+    private static function validateScalarList(
+        array $data,
+        array $spec,
+        bool $isIntCastToFloat,
+    ): array {
+        foreach ($data as $key => $element) {
+            $data[$key] = self::validateScalarElement($element, $spec, $isIntCastToFloat);
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param ScalarListSpec $spec
+     *
+     * @throws Exception\FallbackIsRequired
+     */
+    private static function validateScalarElement(
+        mixed $element,
+        array $spec,
+        bool $isIntCastToFloat,
+    ): mixed {
+        [$kind, $isNullable, $innerSpec] = $spec;
+        if ($element === null) {
+            return $isNullable
+                ? null
+                : throw new Exception\FallbackIsRequired();
+        }
+
+        return match ($kind) {
+            ParameterKind::STRING => is_string($element)
+                ? $element
+                : throw new Exception\FallbackIsRequired(),
+            ParameterKind::INT => is_int($element)
+                ? $element
+                : throw new Exception\FallbackIsRequired(),
+            ParameterKind::BOOL => is_bool($element)
+                ? $element
+                : throw new Exception\FallbackIsRequired(),
+            ParameterKind::FLOAT => self::denormalizeFloat($element, $isIntCastToFloat),
+            ParameterKind::SCALAR_LIST => is_array($element)
+                /**
+                 * @var ScalarListSpec $innerSpec
+                 */
+                ? self::validateScalarList($element, $innerSpec, $isIntCastToFloat)
+                : throw new Exception\FallbackIsRequired(),
+        };
+    }
+
+    /**
+     * @throws Exception\FallbackIsRequired
+     */
+    private static function denormalizeFloat(
+        mixed $value,
+        bool $isIntCastToFloat,
+    ): float {
+        if (is_float($value)) {
+            return $value;
+        }
+
+        // JSON has no distinction between int and float, the PropertyNormalizer casts with a JSON format only
+        if (is_int($value)
+            && $isIntCastToFloat
+        ) {
+            return (float) $value;
+        }
+
+        throw new Exception\FallbackIsRequired();
+    }
+
+    /**
+     * Key check of ArrayDenormalizer::validateKeyType().
+     *
+     * @throws Exception\FallbackIsRequired
+     */
+    private static function validateKey(
+        int | string $key,
+        int $keyCheck,
+    ): void {
+        $isKeyValid = match ($keyCheck) {
+            KeyCheck::INT => is_int($key),
+            KeyCheck::STRING => is_string($key),
+            KeyCheck::UNCHECKED => true,
+        };
+        if (!$isKeyValid) {
+            throw new Exception\FallbackIsRequired();
+        }
+    }
+
+    private static function isFormatSupportedForDenormalization(?string $format): bool
+    {
+        // XML and CSV enable the type conversion of the PropertyNormalizer
+        return $format === null
+            || str_contains($format, 'json');
+    }
+
+    private static function isIntCastToFloat(?string $format): bool
+    {
+        return $format !== null
+            && str_contains($format, 'json');
+    }
+
+    // -- Normalization
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    #[\Override]
+    public function supportsNormalization(
+        mixed $data,
+        ?string $format = null,
+        array $context = [],
+    ): bool {
+        if (!is_object($data)) {
+            return false;
+        }
+
+        $plan = $this->plans[$data::class] ?? $this->plan($data::class);
+
+        return $plan !== false
+            && $plan['isNormalizable']
+            && $this->isContextSupported($context);
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    #[\Override]
+    public function normalize(
+        mixed $data,
+        ?string $format = null,
+        array $context = [],
+    ): array | \ArrayObject {
+        $plan = is_object($data)
+            ? $this->plans[$data::class] ?? $this->plan($data::class)
+            : false;
+        if ($plan === false
+            || !$plan['isNormalizable']
+        ) {
+            /**
+             * @var array<string, mixed>|\ArrayObject<string, mixed>
+             */
+            return $this->fallbackNormalizer->normalize($data, $format, $context);
+        }
+
+        /**
+         * @var object $data
+         */
+        unset($context['cache_key']);
+
+        return $this->normalizeObject(
+            $data,
+            $plan,
+            $format,
+            $context,
+            (bool) ($context[AbstractObjectNormalizer::SKIP_NULL_VALUES] ?? $this->defaultContext[AbstractObjectNormalizer::SKIP_NULL_VALUES] ?? false),
+            (bool) ($context[AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS] ?? $this->defaultContext[AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS] ?? false),
+        );
+    }
+
+    /**
+     * Same as AbstractObjectNormalizer::normalize() for a class with public properties only.
+     *
+     * @param ClassPlan            $plan
+     * @param array<string, mixed> $context
+     *
+     * @return array<string, mixed>|\ArrayObject<string, mixed>
+     */
+    private function normalizeObject(
+        object $object,
+        array $plan,
+        ?string $format,
+        array $context,
+        bool $isNullSkipped,
+        bool $isEmptyObjectPreserved,
+    ): array | \ArrayObject {
+        $normalizedData = [];
+        foreach ($plan['properties'] as $property) {
+            /**
+             * @psalm-suppress MixedAssignment
+             */
+            $value = $object->{$property};
+            if ($value !== null
+                && !is_scalar($value)
+            ) {
+                $value = $this->normalizeValue($value, $format, $context, $isNullSkipped, $isEmptyObjectPreserved);
+            }
+
+            if ($value === null
+                && $isNullSkipped
+            ) {
+                continue;
+            }
+
+            $normalizedData[$property] = $value;
+        }
+
+        if ($normalizedData === []
+            && $isEmptyObjectPreserved
+        ) {
+            return new \ArrayObject();
+        }
+
+        return $normalizedData;
+    }
+
+    /**
+     * Same as Serializer::normalize() for the values of a planned object.
+     *
+     * @param array<string, mixed> $context
+     */
+    private function normalizeValue(
+        mixed $value,
+        ?string $format,
+        array $context,
+        bool $isNullSkipped,
+        bool $isEmptyObjectPreserved,
+    ): mixed {
+        if ($value === null
+            || is_scalar($value)
+        ) {
+            return $value;
+        }
+
+        if (is_array($value)) {
+            foreach ($value as $key => $element) {
+                $value[$key] = $this->normalizeValue($element, $format, $context, $isNullSkipped, $isEmptyObjectPreserved);
+            }
+
+            return $value;
+        }
+
+        if (!is_object($value)) {
+            return $this->normalizer->normalize($value, $format, $context);
+        }
+
+        $class = $value::class;
+        $normalizationKind = $this->normalizationKinds[$class] ?? $this->normalizationKind($class);
+
+        if ($normalizationKind === self::NORMALIZATION_VALUE_OBJECT) {
+            /**
+             * @var StringNormalizable|IntNormalizable|FloatNormalizable|BoolNormalizable|ArrayNormalizable $value
+             */
+            return $value->normalize();
+        }
+
+        if ($normalizationKind === self::NORMALIZATION_PLANNED) {
+            /**
+             * @var ClassPlan $plan
+             */
+            $plan = $this->plans[$class];
+
+            return $this->normalizeObject($value, $plan, $format, $context, $isNullSkipped, $isEmptyObjectPreserved);
+        }
+
+        return $this->normalizer->normalize($value, $format, $context);
+    }
+
+    /**
+     * @param class-string $class
+     */
+    private function normalizationKind(string $class): int
+    {
+        $plan = $this->plan($class);
+
+        $normalizationKind = match (true) {
+            PlanFactory::valueObjectKind($class) !== null => self::NORMALIZATION_VALUE_OBJECT,
+            $plan !== false && $plan['isNormalizable'] => self::NORMALIZATION_PLANNED,
+            default => self::NORMALIZATION_SERIALIZER,
+        };
+
+        $this->normalizationKinds[$class] = $normalizationKind;
+
+        return $normalizationKind;
+    }
+
+    // -- Plans
+
+    /**
+     * @return ClassPlan|false
+     */
+    private function plan(string $class): array | false
+    {
+        if (array_key_exists($class, $this->plans)) {
+            return $this->plans[$class];
+        }
+
+        if (!$this->planFactory->isInScope($class)) {
+            return $this->plans[$class] = false;
+        }
+
+        /**
+         * @var class-string $class Checked by isInScope()
+         */
+        $planCache = $this->planCache;
+        if ($planCache === null) {
+            return $this->plans[$class] = $this->createPlan($class);
+        }
+
+        $cacheItem = $planCache->getItem(sprintf(
+            '%s.%s.%s',
+            self::PLAN_CACHE_KEY_PREFIX,
+            $this->planCacheVersion,
+            strtr($class, '\\', '.'),
+        ));
+        if ($cacheItem->isHit()) {
+            /**
+             * @var ClassPlan|false $plan
+             */
+            $plan = $cacheItem->get();
+
+            return $this->plans[$class] = $plan;
+        }
+
+        $plan = $this->createPlan($class);
+        $planCache->save($cacheItem->set($plan));
+
+        return $this->plans[$class] = $plan;
+    }
+
+    /**
+     * A class referencing itself (directly or through other classes) isn't planned: data that's only invalid deep down would fall back on
+     * every level of the recursion (the PropertyNormalizer re-denormalizing the planned levels below again and again).
+     *
+     * @param class-string $class
+     *
+     * @return ClassPlan|false
+     */
+    private function createPlan(string $class): array | false
+    {
+        $this->plansInProgress[$class] = $class;
+        try {
+            $plan = $this->planFactory->create($class, $this->hasPlanOutsideOfRecursion(...)) ?? false;
+        } finally {
+            unset($this->plansInProgress[$class]);
+        }
+
+        return isset($this->recursiveClasses[$class])
+            ? false
+            : $plan;
+    }
+
+    // -- Diagnosis
+
+    /**
+     * How the class is handled and why (self-aware-normalizers:known-construction-normalizer:list-unplanned). Not used while (de)normalizing: the reason is taken from the
+     * PlanFactory again, as plans only cache the outcome.
+     */
+    public function diagnose(string $class): Diagnosis\ClassDiagnosis
+    {
+        if (!$this->planFactory->isInScope($class)) {
+            return new Diagnosis\ClassDiagnosis(
+                $class,
+                Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::NOT_IN_SCOPE),
+                null,
+                [],
+            );
+        }
+
+        $plan = $this->plan($class);
+
+        /**
+         * @var class-string $class Checked by isInScope()
+         */
+        $planDiagnosis = $this->planFactory->diagnose(
+            $class,
+            // Whether another class has a plan only decides the kind of a parameter, never a limitation, which is all that's read here
+            static fn (string $otherClass): bool => false,
+        );
+
+        if ($plan === false) {
+            // The factory only builds a plan for a class the normalizer has none for when the class references itself: the classes of the
+            // recursion have no plan, so the factory now denormalizes them through the serializer.
+            return new Diagnosis\ClassDiagnosis(
+                $class,
+                $planDiagnosis->limitation ?? Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::RECURSIVE_CLASS),
+                null,
+                [],
+            );
+        }
+
+        $delegatedParameters = [];
+        foreach ($plan['parameters'] as [$name, $kind, $targetClass, , , , $extra]) {
+            $typeSuffix = match ($kind) {
+                ParameterKind::OBJECT => '',
+                ParameterKind::OBJECT_LIST => self::typeSuffixOfObjectList($extra),
+                default => null,
+            };
+            if ($targetClass !== null
+                && $typeSuffix !== null
+            ) {
+                $delegatedParameters[] = new Diagnosis\DelegatedParameter($name, $targetClass, $typeSuffix);
+            }
+        }
+
+        return new Diagnosis\ClassDiagnosis(
+            $class,
+            null,
+            $planDiagnosis->normalizationLimitation,
+            $delegatedParameters,
+        );
+    }
+
+    /**
+     * The "[]" per level of an OBJECT_LIST parameter (see ParameterKind).
+     */
+    private static function typeSuffixOfObjectList(mixed $extra): string
+    {
+        /**
+         * @var list{0: Type, 1: Type, 2: string} $extra
+         */
+        return $extra[2];
+    }
+
+    /**
+     * Whether another class has a plan, while a plan is built. A class whose plan is in progress references itself (directly or through
+     * other classes), so it and the classes of the recursion are marked as recursive.
+     */
+    private function hasPlanOutsideOfRecursion(string $otherClass): bool
+    {
+        if (isset($this->plansInProgress[$otherClass])) {
+            $this->markClassesOfRecursionAsRecursive($otherClass);
+
+            return false;
+        }
+
+        return $this->plan($otherClass) !== false;
+    }
+
+    /**
+     * Marks the class and all classes whose plan is built from it (the classes in progress after it) as recursive.
+     */
+    private function markClassesOfRecursionAsRecursive(string $class): void
+    {
+        $isInRecursion = false;
+        foreach ($this->plansInProgress as $classInProgress) {
+            if ($classInProgress === $class) {
+                $isInRecursion = true;
+            }
+            if ($isInRecursion) {
+                $this->recursiveClasses[$classInProgress] = $classInProgress;
+            }
+        }
+    }
+
+    /**
+     * Only contexts whose options are all accepted (see ACCEPTED_CONTEXT_OPTIONS), merged with the default context like by the
+     * PropertyNormalizer: an option of the context overrules the one of the default context, unless it's null.
+     *
+     * @param array<string, mixed> $context
+     */
+    private function isContextSupported(array $context): bool
+    {
+        if (!$this->isDefaultContextKnown) {
+            return false;
+        }
+
+        foreach ($context as $option => $value) {
+            if (isset($this->acceptedContextOptions[$option])) {
+                continue;
+            }
+            if (!array_key_exists($option, self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE)) {
+                return false;
+            }
+
+            // Null takes the value of the default context, which is checked below
+            if ($value !== null
+                && $value !== self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE[$option]
+            ) {
+                return false;
+            }
+        }
+
+        // Options of the default context without the accepted value must be overruled by the context (with the accepted value, see
+        // above)
+        foreach ($this->defaultContextOptionsToOverrule as $option) {
+            if (!isset($context[$option])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}

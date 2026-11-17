@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace DigitalCraftsman\SelfAwareNormalizers\DependencyInjection;
 
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\ListUnplannedClassesCommand;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\PlanFactory;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\PlanNormalizer;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\KnownConstructionNormalizer;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\ListUnplannedClassesCommand;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\PlanFactory;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\DependencyInjection\Argument\AbstractArgument;
@@ -25,7 +25,7 @@ use Symfony\Component\DependencyInjection\Reference;
  */
 final class SelfAwareNormalizersExtension extends Extension
 {
-    public const string PLAN_NORMALIZER_SERVICE_ID = PlanNormalizer::class;
+    public const string KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID = KnownConstructionNormalizer::class;
     public const string PLAN_FACTORY_SERVICE_ID = PlanFactory::class;
     public const string LIST_UNPLANNED_CLASSES_COMMAND_SERVICE_ID = ListUnplannedClassesCommand::class;
 
@@ -50,7 +50,7 @@ final class SelfAwareNormalizersExtension extends Extension
          * @var array{
          *   implementation_directories: list<string>,
          *   doctrine_type_directories: list<string>,
-         *   plan_normalizer: array{
+         *   known_construction_normalizer: array{
          *     enabled: bool,
          *     supported_class_name_pattern: ?non-empty-string,
          *     supported_parent_types: list<class-string>,
@@ -74,9 +74,9 @@ final class SelfAwareNormalizersExtension extends Extension
             $config[Configuration::DOCTRINE_TYPE_DIRECTORIES_KEY],
         );
 
-        $planNormalizerConfig = $config[Configuration::PLAN_NORMALIZER_KEY];
-        if ($planNormalizerConfig[Configuration::PLAN_NORMALIZER_ENABLED_KEY]) {
-            self::registerPlanNormalizer($planNormalizerConfig, $container);
+        $knownConstructionNormalizerConfig = $config[Configuration::KNOWN_CONSTRUCTION_NORMALIZER_KEY];
+        if ($knownConstructionNormalizerConfig[Configuration::KNOWN_CONSTRUCTION_NORMALIZER_ENABLED_KEY]) {
+            self::registerKnownConstructionNormalizer($knownConstructionNormalizerConfig, $container);
         }
     }
 
@@ -93,41 +93,41 @@ final class SelfAwareNormalizersExtension extends Extension
      *   priority: int,
      * } $config
      */
-    private static function registerPlanNormalizer(
+    private static function registerKnownConstructionNormalizer(
         array $config,
         ContainerBuilder $container,
     ): void {
-        $planCachePool = $config[Configuration::PLAN_NORMALIZER_PLAN_CACHE_POOL_KEY];
+        $planCachePool = $config[Configuration::KNOWN_CONSTRUCTION_NORMALIZER_PLAN_CACHE_POOL_KEY];
 
         $container->setDefinition(self::PLAN_FACTORY_SERVICE_ID, new Definition(PlanFactory::class, [
-            new AbstractArgument('The type extractor of the fallback normalizer, set by the PlanNormalizerCompilerPass.'),
-            $config[Configuration::PLAN_NORMALIZER_SUPPORTED_CLASS_NAME_PATTERN_KEY],
-            $config[Configuration::PLAN_NORMALIZER_SUPPORTED_PARENT_TYPES_KEY],
+            new AbstractArgument('The type extractor of the fallback normalizer, set by the KnownConstructionNormalizerCompilerPass.'),
+            $config[Configuration::KNOWN_CONSTRUCTION_NORMALIZER_SUPPORTED_CLASS_NAME_PATTERN_KEY],
+            $config[Configuration::KNOWN_CONSTRUCTION_NORMALIZER_SUPPORTED_PARENT_TYPES_KEY],
         ]));
 
         // The default context ($defaultContext) isn't set: like for every normalizer, the SerializerPass binds the default context of
-        // the serializer to it. The PlanNormalizerCompilerPass makes sure it's the same as the one of the fallback normalizer.
-        $container->setDefinition(self::PLAN_NORMALIZER_SERVICE_ID, new Definition(PlanNormalizer::class, [
+        // the serializer to it. The KnownConstructionNormalizerCompilerPass makes sure it's the same as the one of the fallback normalizer.
+        $container->setDefinition(self::KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID, new Definition(KnownConstructionNormalizer::class, [
             new Reference(self::PLAN_FACTORY_SERVICE_ID),
-            new Reference($config[Configuration::PLAN_NORMALIZER_FALLBACK_NORMALIZER_KEY]),
+            new Reference($config[Configuration::KNOWN_CONSTRUCTION_NORMALIZER_FALLBACK_NORMALIZER_KEY]),
             $planCachePool !== null
                 ? new Reference($planCachePool, ContainerInterface::NULL_ON_INVALID_REFERENCE)
                 : null,
             $planCachePool !== null
                 ? new Parameter(self::PLAN_CACHE_VERSION_PARAMETER)
                 : 'uncached',
-            '$acceptedContextKeys' => $config[Configuration::PLAN_NORMALIZER_ACCEPTED_CONTEXT_KEYS_KEY],
+            '$acceptedContextKeys' => $config[Configuration::KNOWN_CONSTRUCTION_NORMALIZER_ACCEPTED_CONTEXT_KEYS_KEY],
         ]))
             ->addTag('serializer.normalizer', [
-                'priority' => $config[Configuration::PLAN_NORMALIZER_PRIORITY_KEY],
+                'priority' => $config[Configuration::KNOWN_CONSTRUCTION_NORMALIZER_PRIORITY_KEY],
             ]);
 
         // The command is only available with symfony/console
         if (class_exists(Command::class)) {
             $container->setDefinition(self::LIST_UNPLANNED_CLASSES_COMMAND_SERVICE_ID, new Definition(ListUnplannedClassesCommand::class, [
-                new Reference(self::PLAN_NORMALIZER_SERVICE_ID),
-                $config[Configuration::PLAN_NORMALIZER_SOURCE_DIRECTORIES_KEY],
-                $config[Configuration::PLAN_NORMALIZER_ACCEPTED_UNPLANNED_CLASSES_KEY],
+                new Reference(self::KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID),
+                $config[Configuration::KNOWN_CONSTRUCTION_NORMALIZER_SOURCE_DIRECTORIES_KEY],
+                $config[Configuration::KNOWN_CONSTRUCTION_NORMALIZER_ACCEPTED_UNPLANNED_CLASSES_KEY],
             ]))
                 ->addTag('console.command', [
                     'command' => ListUnplannedClassesCommand::NAME,

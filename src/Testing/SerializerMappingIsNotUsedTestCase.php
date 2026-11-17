@@ -16,8 +16,8 @@ use Symfony\Component\Serializer\Mapping\Loader\LoaderInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 
 /**
- * For apps using the plan normalizer: its fallback, the PropertyNormalizer, must be built without the class metadata factory (the bundle
- * enforces it, see PlanNormalizerCompilerPass), and the plan normalizer reads no mapping either. It handles every object with a
+ * For apps using the known construction normalizer: its fallback, the PropertyNormalizer, must be built without the class metadata factory (the bundle
+ * enforces it, see KnownConstructionNormalizerCompilerPass), and the known construction normalizer reads no mapping either. It handles every object with a
  * non-static property that no other normalizer handles. Therefore:
  * - The serializer mapping is silently ignored for all of these classes: the attributes of Symfony\Component\Serializer\Attribute
  *   (#[Groups], #[SerializedName], #[SerializedPath], #[Ignore], #[MaxDepth], #[Context], #[DiscriminatorMap], ...) as well as XML/YAML
@@ -215,7 +215,7 @@ abstract class SerializerMappingIsNotUsedTestCase extends KernelTestCase
             ],
             $classesOfLoaders,
             'Serializer mapping files (config/serializer/, serialization.* of bundles, framework.serializer.mapping.paths) are ignored by '
-            .'the PropertyNormalizer, as it is built without the class metadata factory for the plan normalizer.',
+            .'the PropertyNormalizer, as it is built without the class metadata factory for the known construction normalizer.',
         );
     }
 

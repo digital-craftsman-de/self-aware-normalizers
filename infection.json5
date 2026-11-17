@@ -1,6 +1,6 @@
 {
   "$schema": "vendor/infection/infection/resources/schema.json",
-  // The tests of the plan normalizer boot kernels and compare whole serializers, so the tests covering a mutant can take longer than
+  // The tests of the known construction normalizer boot kernels and compare whole serializers, so the tests covering a mutant can take longer than
   // the default of 10 seconds. Mutants whose covering tests take longer than the timeout are skipped instead of tested.
   "timeout": 30,
   "source": {
@@ -12,13 +12,15 @@
       "Testing"
     ]
   },
-  // Plan normalizer: by design, a mistake of the plan only makes a class slower, never different, as anything the plan doesn't handle
+  // Known construction normalizer: by design, a mistake of the plan only makes a class slower, never different, as anything the plan doesn't handle
   // exactly falls back to the PropertyNormalizer. Some mutants therefore only change which path produces the (same) result. They are
   // ignored narrowly (mutator and method or source line) with the reason. Everything else is killed by tests.
   "mutators": {
     "@default": true,
     "IncrementInteger": {
       "ignore": [
+        // Output formatting: wrapped texts are one column narrower than the terminal
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\ListUnplannedClassesCommand::writeWrapped",
         "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableType::convertToPHPValue",
         "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableThroughLookupType::convertToPHPValue"
       ]
@@ -28,13 +30,13 @@
         "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableType::convertToPHPValue",
         "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableThroughLookupType::convertToPHPValue",
         // Output formatting: wrapped texts are one column narrower than the terminal
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\ListUnplannedClassesCommand::writeWrapped"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\ListUnplannedClassesCommand::writeWrapped"
       ]
     },
     "Minus": {
       "ignore": [
         // Output formatting: wrapped texts are one column narrower than the terminal
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\ListUnplannedClassesCommand::writeWrapped"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\ListUnplannedClassesCommand::writeWrapped"
       ]
     },
     "MethodCallRemoval": {
@@ -46,13 +48,13 @@
       "ignore": [
         // Without the throw, a value of the wrong type (the instance of FallbackIsRequired) is passed on to the constructor, which fails
         // with a TypeError, which falls back to the PropertyNormalizer as well
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanNormalizer::build",
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanNormalizer::buildNested",
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanNormalizer::buildNestedList",
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::build",
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::buildNested",
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::buildNestedList",
         // Only reached when no normalizer of the serializer supports the class, which the framework's ObjectNormalizer prevents
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanNormalizer::denormalizeThroughSerializer",
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::denormalizeThroughSerializer",
         // Guard: symfony/type-info only allows int and string keys
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanFactory::keyCheck"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\PlanFactory::keyCheck"
       ]
     },
     "Coalesce": {
@@ -66,7 +68,7 @@
       "ignore": [
         // Fast paths for null, scalars, arrays, value objects and planned objects: without them, the value goes through the serializer,
         // which returns the same (through the same normalizers)
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanNormalizer::normalizeValue"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizeValue"
       ],
       "ignoreSourceCodeByRegex": [
         // Memo hit: without it, the plan is built again, with the same result
@@ -76,117 +78,117 @@
     "LogicalOr": {
       "ignore": [
         // Fast path for null and scalars, see ReturnRemoval
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanNormalizer::normalizeValue"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizeValue"
       ]
     },
     "LogicalAnd": {
       "ignore": [
         // Fast path for null and scalars: normalizeValue() returns them as they are
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanNormalizer::normalizeObject",
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizeObject",
         // The union member flag only changes how a failing denormalization fails, which falls back to the PropertyNormalizer anyway
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanNormalizer::contextOfObject",
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::contextOfObject",
         // The reason and the description of a limitation are always set together
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\ListUnplannedClassesCommand::writeDelegatedParameters",
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\ListUnplannedClassesCommand::writeDelegatedParameters",
         // The next token is only null after the last token, which is never a namespace or class keyword in valid PHP
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\ListUnplannedClassesCommand::classesDeclaredInDirectories"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\ListUnplannedClassesCommand::classesDeclaredInDirectories"
       ]
     },
     "TrueValue": {
       "ignore": [
         // The serializer checks the union member flag with isset()
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanNormalizer::contextOfObject"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::contextOfObject"
       ]
     },
     "MatchArmRemoval": {
       "ignore": [
         // Without the arms, value objects and planned objects are normalized through the serializer, with the same result
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanNormalizer::normalizationKind"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizationKind"
       ]
     },
     "LogicalAndAllSubExprNegation": {
       "ignore": [
-        // Objects normalized directly through the plan or through the serializer (which selects the plan normalizer) have the same result
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanNormalizer::normalizationKind"
+        // Objects normalized directly through the plan or through the serializer (which selects the known construction normalizer) have the same result
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizationKind"
       ]
     },
     "LogicalAndSingleSubExprNegation": {
       "ignore": [
         // See LogicalAndAllSubExprNegation
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanNormalizer::normalizationKind"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizationKind"
       ]
     },
     "UnwrapFinally": {
       "ignore": [
         // PlanFactory::create() doesn't throw for an existing class (see its failure contract)
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanNormalizer::createPlan"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::createPlan"
       ]
     },
     "FalseValue": {
       "ignore": [
         // Whether another class has a plan only decides the kind of a parameter, never a limitation, which is all diagnose() reads
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanNormalizer::diagnose",
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::diagnose",
         // A class of a recursion: its own plan is discarded as recursive either way, the classes referencing it get the same plan
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanNormalizer::hasPlanOutsideOfRecursion"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::hasPlanOutsideOfRecursion"
       ]
     },
     "CastBool": {
       "ignore": [
         // Options without value (InputOption::VALUE_NONE) are always bool
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\ListUnplannedClassesCommand::execute"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\ListUnplannedClassesCommand::execute"
       ]
     },
     "LogicalOrAllSubExprNegation": {
       "ignore": [
         // A class that can't be loaded is never in the scope, so it's skipped either way
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\ListUnplannedClassesCommand::execute"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\ListUnplannedClassesCommand::execute"
       ]
     },
     "LogicalOrSingleSubExprNegation": {
       "ignore": [
         // See LogicalOrAllSubExprNegation
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\ListUnplannedClassesCommand::execute"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\ListUnplannedClassesCommand::execute"
       ]
     },
     "NullSafePropertyCall": {
       "ignore": [
         // The class of a delegated parameter has no plan, so it always has a limitation
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\ListUnplannedClassesCommand::execute"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\ListUnplannedClassesCommand::execute"
       ]
     },
     "NullSafeMethodCall": {
       "ignore": [
         // See NullSafePropertyCall
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\ListUnplannedClassesCommand::execute"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\ListUnplannedClassesCommand::execute"
       ]
     },
     "BitwiseOr": {
       "ignore": [
         // Output formatting of the JSON (pretty print, unescaped slashes)
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\ListUnplannedClassesCommand::execute"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\ListUnplannedClassesCommand::execute"
       ]
     },
     "UnwrapLtrim": {
       "ignore": [
         // Only changes the name of a class in the global namespace, which isn't autoloadable and therefore skipped either way
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\ListUnplannedClassesCommand::classesDeclaredInDirectories"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\ListUnplannedClassesCommand::classesDeclaredInDirectories"
       ]
     },
     "UnwrapArrayUnique": {
       "ignore": [
         // Guard, a class is only declared once
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\ListUnplannedClassesCommand::classesDeclaredInDirectories"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\ListUnplannedClassesCommand::classesDeclaredInDirectories"
       ]
     },
     "Catch_": {
       "ignore": [
         // Guard: the type resolution only throws exceptions of type-info for the existing classes of a constructor
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanFactory::createParameterPlan"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\PlanFactory::createParameterPlan"
       ]
     },
     "FunctionCallRemoval": {
       "ignore": [
         // type-info orders the members of a union of key types, the sorting only guards against a change of that
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\PlanNormalizer\\PlanFactory::keyCheck"
+        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\PlanFactory::keyCheck"
       ]
     }
   },

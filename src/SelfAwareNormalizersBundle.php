@@ -3,7 +3,7 @@
 namespace DigitalCraftsman\SelfAwareNormalizers;
 
 use DigitalCraftsman\SelfAwareNormalizers\DependencyInjection\DoctrineTypeRegisterCompilerPass;
-use DigitalCraftsman\SelfAwareNormalizers\DependencyInjection\PlanNormalizerCompilerPass;
+use DigitalCraftsman\SelfAwareNormalizers\DependencyInjection\KnownConstructionNormalizerCompilerPass;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
@@ -20,6 +20,6 @@ final class SelfAwareNormalizersBundle extends Bundle
 
         $container->addCompilerPass(new DoctrineTypeRegisterCompilerPass());
         // Before the services are removed, so it sees the final (autowired and bound) arguments of the fallback normalizer
-        $container->addCompilerPass(new PlanNormalizerCompilerPass(), PassConfig::TYPE_BEFORE_REMOVING);
+        $container->addCompilerPass(new KnownConstructionNormalizerCompilerPass(), PassConfig::TYPE_BEFORE_REMOVING);
     }
 }
