@@ -15,7 +15,7 @@ Value objects and DTOs that know how to normalize and denormalize themselves. Im
 - **Same format everywhere.** The serializer and Doctrine use the same `normalize()` and `denormalize()` methods, so your API and your database always store the same structure.
 - **Explicit and type safe.** Normalization is plain PHP code instead of reflection magic. Static analysis tools like Psalm and PHPStan understand every step.
 - **Reliable.** It's a central part of an application, so it's tested thoroughly, including mutation testing.
-- **Fast.** The optional [plan normalizer](#plan-normalizer) (de)normalizes plain read models, DTOs, commands and queries without the per object analysis of the `PropertyNormalizer`, with exactly the same results.
+- **Fast.** The optional [known construction normalizer](#known-construction-normalizer) (de)normalizes plain read models, DTOs, commands and queries without the per object analysis of the `PropertyNormalizer`, with exactly the same results.
 
 ## Installation
 
@@ -25,7 +25,7 @@ Requires PHP 8.5 or 8.6, Symfony 7.4 or 8 and Doctrine DBAL 4.
 composer require digital-craftsman/self-aware-normalizers
 ```
 
-The normalizers are registered automatically. The configuration is only needed for the [Doctrine types](#doctrine-types) and the [plan normalizer](#plan-normalizer).
+The normalizers are registered automatically. The configuration is only needed for the [Doctrine types](#doctrine-types) and the [known construction normalizer](#known-construction-normalizer).
 
 ### Configuration
 
@@ -235,13 +235,13 @@ return App::config([
 
 The abstract base types like `StringNormalizableType` are deprecated and will be removed in 2.0.0. Switch to the automatic Doctrine types as described in the [upgrade guide](./UPGRADE.md#from-12-to-130).
 
-## Plan normalizer
+## Known construction normalizer
 
-An optional fast path in front of Symfony's `PropertyNormalizer` for plain constructor-promoted classes like read models, DTOs, commands, queries and events. It's disabled by default.
+An optional fast path in front of Symfony's `PropertyNormalizer` for plain constructor-promoted classes like read models, DTOs, commands, queries and events. It knows in advance how each object is constructed: containers through a constructor that mirrors their promoted properties, self-aware value objects through their `denormalize()` / `normalize()`. That knowledge is precomputed per class as a plan. It's disabled by default.
 
 ### Why?
 
-The `PropertyNormalizer` analyses every object again: it selects the normalizer per value, resolves the type of every constructor parameter, loops over the attributes and evaluates the context. For large read models, that's most of the (de)normalization time. The plan normalizer builds a plan per class once (per constructor parameter the kind of value and the class to build) and then only runs the constructors and the `normalize()` / `denormalize()` methods of the value objects. In a real application, the responses of endpoints with large read models got 30 % to 60 % faster.
+The `PropertyNormalizer` analyses every object again: it selects the normalizer per value, resolves the type of every constructor parameter, loops over the attributes and evaluates the context. For large read models, that's most of the (de)normalization time. The known construction normalizer builds a plan per class once (per constructor parameter the kind of value and the class to build) and then only runs the constructors and the `normalize()` / `denormalize()` methods of the value objects. In a real application, the responses of endpoints with large read models got 30 % to 60 % faster.
 
 The result is exactly the one of the `PropertyNormalizer`:
 
@@ -251,23 +251,23 @@ The result is exactly the one of the `PropertyNormalizer`:
 
 ### Requirements
 
-The plan normalizer mirrors internals of `symfony/serializer`, `symfony/type-info` and `symfony/property-info` (e.g. `AbstractObjectNormalizer::denormalizeParameter()`, the `ArrayDenormalizer` and the context options). There is no version lock. Instead, anything it doesn't know leads to the `PropertyNormalizer` or fails the build, and your equivalence test checks the rest against the versions you have installed:
+The known construction normalizer mirrors internals of `symfony/serializer`, `symfony/type-info` and `symfony/property-info` (e.g. `AbstractObjectNormalizer::denormalizeParameter()`, the `ArrayDenormalizer` and the context options). There is no version lock. Instead, anything it doesn't know leads to the `PropertyNormalizer` or fails the build, and your equivalence test checks the rest against the versions you have installed:
 
 - **Context options are an allowlist.** The plan is only used when every option of the context and of the default context of the serializer is one it was verified against: the options it implements itself (`skip_null_values`, `preserve_empty_objects`), the options of the `PropertyNormalizer` only with the value that keeps its default behaviour (e.g. `allow_extra_attributes: true`, `enable_type_conversion: false`), the internal options of the serializer (e.g. `deserialization_path`, `cache_key`, `key_type` / `value_type`) and the options of other normalizers, encoders and decoders, which the plan hands on unchanged (e.g. `datetime_format`, `json_encode_options`). Any other option, e.g. one added by a later version of the serializer, makes the serializer use the `PropertyNormalizer`. Options of your own can be accepted through `accepted_context_keys`.
 - **The constructor arguments of the fallback are an allowlist.** The fallback must be exactly the `PropertyNormalizer` (see [Setup](#setup)), and every other argument of its constructor must keep its default value. An argument added by a later version that is configured fails the container build.
-- **The equivalence test of your application is required.** It compares the plan normalizer with the `PropertyNormalizer` for every planned class of your application with the installed versions (see [Equivalence test for your application](#equivalence-test-for-your-application)). Run it, together with the list command with `--fail-on-unplanned`, in your test suite, especially after updating Symfony. Don't use the plan normalizer without it.
+- **The equivalence test of your application is required.** It compares the known construction normalizer with the `PropertyNormalizer` for every planned class of your application with the installed versions (see [Equivalence test for your application](#equivalence-test-for-your-application)). Run it, together with the list command with `--fail-on-unplanned`, in your test suite, especially after updating Symfony. Don't use the known construction normalizer without it.
 
 The bundle itself runs its tests against the next version of Symfony in CI as well.
 
 ### Setup
 
-The fallback is a `PropertyNormalizer` without serializer mapping, registered by the application. The plan normalizer is only equivalent to it when it's built without class metadata factory, name converter, class discriminator resolver and object class resolver, and with every other argument but the type extractor and the default context in its default value. The bundle validates that when the container is built (and fails with an explanation otherwise). It also gives the plan normalizer the type extractor and the default context of the fallback, so both always resolve the same types.
+The fallback is a `PropertyNormalizer` without serializer mapping, registered by the application. The known construction normalizer is only equivalent to it when it's built without class metadata factory, name converter, class discriminator resolver and object class resolver, and with every other argument but the type extractor and the default context in its default value. The bundle validates that when the container is built (and fails with an explanation otherwise). It also gives the known construction normalizer the type extractor and the default context of the fallback, so both always resolve the same types.
 
 ```yaml
 # config/services.yaml
 services:
 
-  # The fallback of the plan normalizer. Without class metadata factory, name converter, class discriminator resolver and object
+  # The fallback of the known construction normalizer. Without class metadata factory, name converter, class discriminator resolver and object
   # class resolver. Set them to null explicitly, an autowired service gets them injected otherwise.
   # Autoconfiguration may add a second tag without priority, which is ignored: like for the serializer, the first tag counts.
   serializer.normalizer.property_normalizer:
@@ -303,9 +303,9 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\App;
 
 return App::config([
     'self_aware_normalizers' => [
-        'plan_normalizer' => [
+        'known_construction_normalizer' => [
             'enabled' => true,
-            // Classes the plan normalizer is responsible for: matched by name ...
+            // Classes the known construction normalizer is responsible for: matched by name ...
             'supported_class_name_pattern' => '/^App\\\\(?:[^\\\\]+\\\\)*(?:ReadModel|DTO)\\\\/',
             // ... or by an interface or parent class
             'supported_parent_types' => [
@@ -325,7 +325,7 @@ return App::config([
                 '%kernel.project_dir%/src',
             ],
             // Pool the plans are cached in across requests (see below). Optional.
-            'plan_cache_pool' => 'cache.plan_normalizer_plans',
+            'plan_cache_pool' => 'cache.known_construction_normalizer_plans',
             // Defaults
             'fallback_normalizer' => 'serializer.normalizer.property_normalizer',
             'priority' => -45,
@@ -336,21 +336,21 @@ return App::config([
 
 | Option | Default | Description |
 |---|---|---|
-| `enabled` | `false` | Registers the plan normalizer. |
+| `enabled` | `false` | Registers the known construction normalizer. |
 | `supported_class_name_pattern` | `null` | Regular expression matched against the fully qualified class name. |
 | `supported_parent_types` | `[]` | Interfaces or parent classes. A class is in scope when it matches the pattern or extends / implements one of them. At least one of both is required. Exceptions are never in scope. |
 | `accepted_unplanned_classes` | `[]` | Class => reason. Only used by the list command. |
-| `accepted_context_keys` | `[]` | Further context keys the plan normalizer is used with (see [Requirements](#requirements)). Only for options of your own that don't change the result of the `PropertyNormalizer`, e.g. options of your own normalizers. Options the plan doesn't implement (e.g. `groups`) or only accepts with a specific value (e.g. `allow_extra_attributes`) can't be accepted. |
+| `accepted_context_keys` | `[]` | Further context keys the known construction normalizer is used with (see [Requirements](#requirements)). Only for options of your own that don't change the result of the `PropertyNormalizer`, e.g. options of your own normalizers. Options the plan doesn't implement (e.g. `groups`) or only accepts with a specific value (e.g. `allow_extra_attributes`) can't be accepted. |
 | `source_directories` | `[]` | Directories scanned by the list command (recursively). |
 | `plan_cache_pool` | `null` | Service id of a PSR-6 pool. Without it (or when the service doesn't exist), plans are only kept per instance. |
 | `fallback_normalizer` | `serializer.normalizer.property_normalizer` | Service id of the `PropertyNormalizer` to fall back to. |
 | `priority` | `-45` | Priority in the serializer. Must be between the `BackedEnumNormalizer` and the fallback. |
 
-The services are `DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\PlanNormalizer` and `DigitalCraftsman\SelfAwareNormalizers\Serializer\PlanNormalizer\PlanFactory` (private).
+The services are `DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\KnownConstructionNormalizer` and `DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\PlanFactory` (private).
 
 ### Cache of the plans
 
-Building the plans takes time on every request without a cache, which eats a large part of the gain on requests with many small classes. In production, cache them in a pool. Plans are cached under the build id of the container (`container.build_id`), so a cached plan never outlives the code it was built from. Don't cache them in `dev` and `test`, where a changed class must apply without clearing a cache, by defining the pool only in `prod` (the plan normalizer ignores a pool that doesn't exist):
+Building the plans takes time on every request without a cache, which eats a large part of the gain on requests with many small classes. In production, cache them in a pool. Plans are cached under the build id of the container (`container.build_id`), so a cached plan never outlives the code it was built from. Don't cache them in `dev` and `test`, where a changed class must apply without clearing a cache, by defining the pool only in `prod` (the known construction normalizer ignores a pool that doesn't exist):
 
 ```php
 return App::config([
@@ -358,7 +358,7 @@ return App::config([
         'framework' => [
             'cache' => [
                 'pools' => [
-                    'cache.plan_normalizer_plans' => [
+                    'cache.known_construction_normalizer_plans' => [
                         'adapter' => 'cache.system',
                     ],
                 ],
@@ -368,7 +368,7 @@ return App::config([
 ]);
 ```
 
-The type extractor of the fallback re-parses the docblocks of every class on every request as well. Wrapping it in a `PropertyInfoCacheExtractor` in production is worth it, too. It's taken over by the plan normalizer automatically.
+The type extractor of the fallback re-parses the docblocks of every class on every request as well. Wrapping it in a `PropertyInfoCacheExtractor` in production is worth it, too. It's taken over by the known construction normalizer automatically.
 
 ### Limitations
 
@@ -384,19 +384,19 @@ A class gets a plan when it has a public constructor whose parameters are exactl
 - Classes with a mutable (not `readonly`) property are only denormalized through their plan, the normalization falls back.
 - Contexts with options the plan doesn't implement (e.g. `groups`, `attributes`, `object_to_populate`, `callbacks`, `enable_max_depth`, `disable_type_enforcement`, `circular_reference_handler`, collecting denormalization errors, `allow_extra_attributes: false`) or doesn't know (see [Requirements](#requirements)) and the formats XML and CSV (which enable the type conversion) always go to the `PropertyNormalizer`.
 
-As the fallback is built without class metadata factory, **serializer mapping is ignored** for all classes handled by it or by the plan normalizer: attributes like `#[Groups]`, `#[SerializedName]` or `#[Ignore]` and XML/YAML mapping files. The test case `SerializerMappingIsNotUsedTestCase` (see below) fails when they are used.
+As the fallback is built without class metadata factory, **serializer mapping is ignored** for all classes handled by it or by the known construction normalizer: attributes like `#[Groups]`, `#[SerializedName]` or `#[Ignore]` and XML/YAML mapping files. The test case `SerializerMappingIsNotUsedTestCase` (see below) fails when they are used.
 
 ### List the classes that aren't planned
 
 ```shell
-bin/console self-aware-normalizers:plan-normalizer:list-unplanned
+bin/console self-aware-normalizers:known-construction-normalizer:list-unplanned
 ```
 
 Lists every class of the `source_directories` that is in scope but not (fully) on the fast path, with the reason, and the parameters of planned classes whose values are (de)normalized through the serializer. Options: `--only-relevant` hides the classes that never get a plan by design, `--format=json` prints the data as JSON, and `--fail-on-unplanned` fails when a class falls back that isn't one of the `accepted_unplanned_classes` or when an accepted class doesn't fall back anymore. Run it in your tests or CI with `--fail-on-unplanned`, so a new read model that falls back doesn't go unnoticed. Requires `symfony/console`.
 
 ### Equivalence test for your application
 
-The bundle tests the plan normalizer with its own fixtures. Your classes are only covered by a test of your application: `PlanNormalizerEquivalenceTestCase` builds a sample of every planned class of your source (through the constructors, with generated values of the parameter types) and checks that the plan normalizer produces the same results as the `PropertyNormalizer` alone: when normalizing, when denormalizing (with and without JSON format, as is and after a JSON round trip), with cached plans and with invalid data (every parameter removed, `null`, of the wrong type, with wrong elements, ...), and that the serializer selects the plan normalizer for every planned class. It requires `phpunit/phpunit` 12 or 13 and runs in a `KernelTestCase` of your application.
+The bundle tests the known construction normalizer with its own fixtures. Your classes are only covered by a test of your application: `KnownConstructionNormalizerEquivalenceTestCase` builds a sample of every planned class of your source (through the constructors, with generated values of the parameter types) and checks that the known construction normalizer produces the same results as the `PropertyNormalizer` alone: when normalizing, when denormalizing (with and without JSON format, as is and after a JSON round trip), with cached plans and with invalid data (every parameter removed, `null`, of the wrong type, with wrong elements, ...), and that the serializer selects the known construction normalizer for every planned class. It requires `phpunit/phpunit` 12 or 13 and runs in a `KernelTestCase` of your application.
 
 ```php
 <?php
@@ -411,11 +411,11 @@ use App\ValueObject\DateRange;
 use App\ValueObject\Id;
 use DigitalCraftsman\DateTimePrecision\Duration;
 use DigitalCraftsman\DateTimePrecision\Moment;
-use DigitalCraftsman\SelfAwareNormalizers\Testing\PlanNormalizer\PlanNormalizerEquivalenceTestCase;
-use DigitalCraftsman\SelfAwareNormalizers\Testing\PlanNormalizer\SampleContext;
-use DigitalCraftsman\SelfAwareNormalizers\Testing\PlanNormalizer\SampleProvider;
+use DigitalCraftsman\SelfAwareNormalizers\Testing\KnownConstructionNormalizer\KnownConstructionNormalizerEquivalenceTestCase;
+use DigitalCraftsman\SelfAwareNormalizers\Testing\KnownConstructionNormalizer\SampleContext;
+use DigitalCraftsman\SelfAwareNormalizers\Testing\KnownConstructionNormalizer\SampleProvider;
 
-final class PlanNormalizerEquivalenceTest extends PlanNormalizerEquivalenceTestCase
+final class KnownConstructionNormalizerEquivalenceTest extends KnownConstructionNormalizerEquivalenceTestCase
 {
     protected static function sourceDirectories(): array
     {
@@ -476,7 +476,7 @@ final readonly class AppSampleProvider implements SampleProvider
 
 A `SampleProvider` is asked before the built-in samples for every object the sample factory builds. Besides the class and the name of the parameter, its `SampleContext` contains the class whose constructor the parameter belongs to (`classOfParameter`, also for the elements of a collection and for the implementation built for an interface or abstract class), the values the factory currently tries (`sequence`, `int`, `bool`, `numberOfElements`) and `sampleOf()` to build samples of other classes. Enums are taken from the providers as well; without one, the factory tries the first and the last case.
 
-`SerializerComparison` builds the serializers the test case compares (the configured one, one without the plan normalizer, and one whose fallback throws) and can be used for further tests of your own.
+`SerializerComparison` builds the serializers the test case compares (the configured one, one without the known construction normalizer, and one whose fallback throws) and can be used for further tests of your own.
 
 `SerializerMappingIsNotUsedTestCase` checks that no class of your source and no non-dev vendor package uses serializer attributes and that no mapping file is registered:
 

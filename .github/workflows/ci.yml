@@ -86,9 +86,9 @@ jobs:
       - name: Run PHP tests
         run: make php-8.6-tests-ci
 
-  # The plan normalizer has no version lock: the tests (including the equivalence tests) are what tells whether it's still equivalent to
+  # The known construction normalizer has no version lock: the tests (including the equivalence tests) are what tells whether it's still equivalent to
   # the PropertyNormalizer of the next minor version of Symfony. Allowed to fail (the job is marked as failed, the workflow isn't), as the
-  # next version is still in development. A failure means the plan normalizer must be adapted before that version is released.
+  # next version is still in development. A failure means the known construction normalizer must be adapted before that version is released.
   test-8-5-next-symfony:
     name: "Tests on PHP 8.5 with the next Symfony version (allowed to fail)"
     runs-on: ubuntu-latest
