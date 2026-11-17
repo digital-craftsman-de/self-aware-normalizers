@@ -49,9 +49,9 @@ use Symfony\Component\TypeInfo\Type;
  *
  * The plan mirrors internals of symfony/serializer, symfony/type-info and symfony/property-info. Instead of a version lock, anything it
  * doesn't know leads to the PropertyNormalizer or fails the container build: context options must be on an allowlist (see
- * ACCEPTED_CONTEXT_OPTIONS), the constructor arguments of the fallback as well (see KnownConstructionNormalizerCompilerPass). What
- * remains is checked by the equivalence test of the application (KnownConstructionNormalizerEquivalenceTestCase) against the installed
- * versions.
+ * ACCEPTED_CONTEXT_OPTIONS), the constructor arguments of the fallback as well (see KnownConstructionNormalizerCompilerPass), and a class
+ * a normalizer in front of it may handle is never handled inline (see NormalizerChain). The equivalence tests of the bundle compare it
+ * with the PropertyNormalizer, also against the next version of Symfony.
  *
  * @psalm-import-type ClassPlan from PlanFactory
  * @psalm-import-type ScalarListSpec from PlanFactory
@@ -309,7 +309,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         array $context = [],
     ): bool {
         return is_array($data)
-            && self::isFormatSupportedForDenormalization($format)
+            && self::isFormatSupported($format)
             && $this->plan($type) !== false
             && $this->isContextSupported($context);
     }
@@ -800,11 +800,14 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         }
     }
 
-    private static function isFormatSupportedForDenormalization(?string $format): bool
+    /**
+     * The formats the chain of normalizers is checked for (see NormalizerChain). XML and CSV would enable the type conversion of the
+     * PropertyNormalizer as well.
+     */
+    private static function isFormatSupported(?string $format): bool
     {
-        // XML and CSV enable the type conversion of the PropertyNormalizer
         return $format === null
-            || str_contains($format, 'json');
+            || $format === 'json';
     }
 
     private static function isIntCastToFloat(?string $format): bool
@@ -824,7 +827,9 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         ?string $format = null,
         array $context = [],
     ): bool {
-        if (!is_object($data)) {
+        if (!is_object($data)
+            || !self::isFormatSupported($format)
+        ) {
             return false;
         }
 
@@ -977,7 +982,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         $plan = $this->plan($class);
 
         $normalizationKind = match (true) {
-            PlanFactory::valueObjectKind($class) !== null => self::NORMALIZATION_VALUE_OBJECT,
+            $this->isValueObjectHandledInline($class) => self::NORMALIZATION_VALUE_OBJECT,
             $plan !== false && $plan['isNormalizable'] => self::NORMALIZATION_PLANNED,
             default => self::NORMALIZATION_SERIALIZER,
         };
@@ -985,6 +990,16 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         $this->normalizationKinds[$class] = $normalizationKind;
 
         return $normalizationKind;
+    }
+
+    /**
+     * A value object is normalized through its normalize() directly, unless a normalizer in front of the KnownConstructionNormalizer claims
+     * it (see NormalizerChain).
+     */
+    private function isValueObjectHandledInline(string $class): bool
+    {
+        return PlanFactory::valueObjectKind($class) !== null
+            && $this->planFactory->isHandledInline($class);
     }
 
     // -- Plans

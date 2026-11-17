@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer;
 
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence\SerializerComparison;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence\ThrowingPropertyTypeExtractor;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Leaf;
-use DigitalCraftsman\SelfAwareNormalizers\Testing\KnownConstructionNormalizer\SerializerComparison;
-use DigitalCraftsman\SelfAwareNormalizers\Testing\KnownConstructionNormalizer\ThrowingPropertyTypeExtractor;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;

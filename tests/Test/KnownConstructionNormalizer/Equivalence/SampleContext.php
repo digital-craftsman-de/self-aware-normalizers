@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Testing\KnownConstructionNormalizer;
+namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence;
 
 /**
  * The state of the SampleFactory while it builds a sample, for SampleProviders: the values it currently tries (it tries several

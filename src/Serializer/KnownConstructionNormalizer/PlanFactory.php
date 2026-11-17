@@ -44,8 +44,8 @@ use Symfony\Component\TypeInfo\TypeResolver\ReflectionTypeResolver;
  * so the class stays with the PropertyNormalizer. Types are only resolved and classified within the try of createParameterPlan(), which
  * turns TypeCanNotBePlanned and the exceptions of symfony/type-info and reflection into the limitation TYPE_IS_NOT_RESOLVABLE: neither
  * method throws for an existing class. Keep any new type resolution within that try. A bug here therefore only makes classes slower,
- * never different; it shows up as fewer planned classes, which the equivalence test (KnownConstructionNormalizerEquivalenceTestCase) guards with
- * its minimum number of planned classes.
+ * never different; it shows up as fewer planned classes, which the equivalence test of the bundle guards with its minimum number of
+ * planned classes.
  *
  * A parameter plan is a list (destructured in the hot loop): name, ParameterKind, target class, whether the parameter allows null,
  * whether it has a default value, the default value, and the extra slot of the kind (a ParameterExtra, see ParameterKind; typed mixed in the
@@ -109,11 +109,15 @@ final readonly class PlanFactory
      *                                                                  KnownConstructionNormalizer falls back to
      * @param non-empty-string|null          $supportedClassNamePattern Regular expression matched against the fully qualified class name
      * @param list<class-string>             $supportedParentTypes      Interfaces or parent classes
+     * @param NormalizerChain                $normalizerChain           The normalizers of the serializer in front of the
+     *                                                                  KnownConstructionNormalizer, which may claim classes the plan
+     *                                                                  would otherwise handle inline
      */
     public function __construct(
         private PropertyTypeExtractorInterface $propertyTypeExtractor,
         private ?string $supportedClassNamePattern,
         private array $supportedParentTypes,
+        private NormalizerChain $normalizerChain = new NormalizerChain(),
     ) {
         $this->reflectionTypeResolver = new ReflectionTypeResolver();
         $this->typeContextFactory = new TypeContextFactory();
@@ -124,7 +128,16 @@ final readonly class PlanFactory
      */
     public function withPropertyTypeExtractor(PropertyTypeExtractorInterface $propertyTypeExtractor): self
     {
-        return new self($propertyTypeExtractor, $this->supportedClassNamePattern, $this->supportedParentTypes);
+        return new self($propertyTypeExtractor, $this->supportedClassNamePattern, $this->supportedParentTypes, $this->normalizerChain);
+    }
+
+    /**
+     * Whether a class can be handled inline (planned, or as value object through its own methods): only when no normalizer the serializer
+     * asks before the KnownConstructionNormalizer claims it (see NormalizerChain).
+     */
+    public function isHandledInline(string $class): bool
+    {
+        return $this->normalizerChain->claimOf($class) === null;
     }
 
     /**
@@ -178,6 +191,16 @@ final readonly class PlanFactory
         \Closure $hasPlan,
     ): Diagnosis\PlanDiagnosis {
         $reflectionClass = new \ReflectionClass($class);
+        if (!$reflectionClass->isInterface()
+            && !$reflectionClass->isEnum()
+            && !$reflectionClass->isAbstract()
+        ) {
+            $claim = $this->normalizerChain->claimOf($class);
+            if ($claim !== null) {
+                return Diagnosis\PlanDiagnosis::notPlanned(new Diagnosis\PlanLimitation(Diagnosis\PlanLimitationReason::CLAIMED_BY_OTHER_NORMALIZER, null, $claim));
+            }
+        }
+
         $limitationOfKind = match (true) {
             $reflectionClass->isInterface() => Diagnosis\PlanLimitationReason::INTERFACE,
             self::valueObjectKind($class) !== null => Diagnosis\PlanLimitationReason::SELF_AWARE_VALUE_OBJECT,
@@ -569,6 +592,7 @@ final readonly class PlanFactory
         $valueObjectKind = self::valueObjectKind($elementClass);
         if ($valueObjectKind !== null
             && count($keyChecks) === 1
+            && $this->isHandledInline($elementClass)
         ) {
             return [ParameterKind::VALUE_OBJECT_LIST, $elementClass, [$valueObjectKind, $keyChecks[0]]];
         }
@@ -607,7 +631,9 @@ final readonly class PlanFactory
     ): array {
         // A class that doesn't exist is denormalized through the serializer as well, which fails like for the PropertyNormalizer
         $valueObjectKind = self::valueObjectKind($class);
-        if ($valueObjectKind !== null) {
+        if ($valueObjectKind !== null
+            && $this->isHandledInline($class)
+        ) {
             return [$valueObjectKind, $class, null];
         }
 

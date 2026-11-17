@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Testing\KnownConstructionNormalizer;
+namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence;
 
 use DigitalCraftsman\SelfAwareNormalizers\DependencyInjection\ConstructFinder;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\ArrayNormalizable;
@@ -49,7 +49,7 @@ use Symfony\Component\Serializer\Serializer;
  * A new class whose constructor validation needs a combination of values the SampleFactory doesn't generate fails the first test; add a
  * sample to samplesOfClasses() or a SampleProvider to sampleProviders().
  */
-abstract class KnownConstructionNormalizerEquivalenceTestCase extends KernelTestCase
+abstract class EquivalenceTestCase extends KernelTestCase
 {
     /**
      * Shared by all tests of the class, built on first use and released after the class: the plans of all classes (in the KnownConstructionNormalizer

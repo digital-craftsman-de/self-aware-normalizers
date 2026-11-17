@@ -6,6 +6,7 @@ namespace DigitalCraftsman\SelfAwareNormalizers\DependencyInjection;
 
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\KnownConstructionNormalizer;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\ListUnplannedClassesCommand;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\NormalizerChain;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\PlanFactory;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\Console\Command\Command;
@@ -56,6 +57,7 @@ final class SelfAwareNormalizersExtension extends Extension
          *     supported_parent_types: list<class-string>,
          *     accepted_unplanned_classes: array<string, string>,
          *     accepted_context_keys: list<string>,
+         *     neutral_normalizers: list<string>,
          *     source_directories: list<string>,
          *     plan_cache_pool: ?string,
          *     fallback_normalizer: string,
@@ -87,6 +89,7 @@ final class SelfAwareNormalizersExtension extends Extension
      *   supported_parent_types: list<class-string>,
      *   accepted_unplanned_classes: array<string, string>,
      *   accepted_context_keys: list<string>,
+     *   neutral_normalizers: list<string>,
      *   source_directories: list<string>,
      *   plan_cache_pool: ?string,
      *   fallback_normalizer: string,
@@ -103,6 +106,10 @@ final class SelfAwareNormalizersExtension extends Extension
             new AbstractArgument('The type extractor of the fallback normalizer, set by the KnownConstructionNormalizerCompilerPass.'),
             $config[Configuration::KNOWN_CONSTRUCTION_NORMALIZER_SUPPORTED_CLASS_NAME_PATTERN_KEY],
             $config[Configuration::KNOWN_CONSTRUCTION_NORMALIZER_SUPPORTED_PARENT_TYPES_KEY],
+            new Definition(NormalizerChain::class, [
+                new AbstractArgument('The normalizers in front of the known construction normalizer, set by the KnownConstructionNormalizerCompilerPass.'),
+                $config[Configuration::KNOWN_CONSTRUCTION_NORMALIZER_NEUTRAL_NORMALIZERS_KEY],
+            ]),
         ]));
 
         // The default context ($defaultContext) isn't set: like for every normalizer, the SerializerPass binds the default context of

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Testing\KnownConstructionNormalizer;
+namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence;
 
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizable;
 use Symfony\Component\PropertyInfo\PropertyTypeExtractorInterface;
@@ -19,7 +19,7 @@ use Symfony\Component\TypeInfo\TypeResolver\ReflectionTypeResolver;
 use Symfony\Component\TypeInfo\TypeResolver\StringTypeResolver;
 
 /**
- * Builds instances of arbitrary classes for KnownConstructionNormalizerEquivalenceTestCase: every constructor parameter gets a value of its type
+ * Builds instances of arbitrary classes for EquivalenceTestCase: every constructor parameter gets a value of its type
  * (element types of collections from the PHPDoc), value objects and nested classes are built the same way, recursively. Constructor
  * validation still runs, so the generated values follow a few rules to be valid for most value objects:
  * - Samples of the SampleProviders of the app come first (e.g. value objects of dates whose start must be before their end, ids, files).

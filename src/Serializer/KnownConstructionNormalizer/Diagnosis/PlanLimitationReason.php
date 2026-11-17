@@ -48,6 +48,13 @@ enum PlanLimitationReason: string
     case NOT_IN_SCOPE = 'NOT_IN_SCOPE';
     case RECURSIVE_CLASS = 'RECURSIVE_CLASS';
 
+    // -- Decided by the normalizers of the serializer
+    /**
+     * A normalizer with a higher priority than the KnownConstructionNormalizer claims the class (see NormalizerChain), so the serializer
+     * doesn't select the KnownConstructionNormalizer for it, and the plans of other classes don't handle it inline.
+     */
+    case CLAIMED_BY_OTHER_NORMALIZER = 'CLAIMED_BY_OTHER_NORMALIZER';
+
     // -- Normalization only (the class is planned for the denormalization)
     case PROPERTY_IS_MUTABLE = 'PROPERTY_IS_MUTABLE';
 
@@ -95,6 +102,7 @@ enum PlanLimitationReason: string
             self::COLLECTION_IS_NOT_AN_ARRAY => 'collection is not an array',
             self::UNSUPPORTED_TYPE => 'unsupported type',
             self::RECURSIVE_CLASS => 'references itself (directly or through other classes)',
+            self::CLAIMED_BY_OTHER_NORMALIZER => 'claimed by a normalizer with a higher priority',
             self::PROPERTY_IS_MUTABLE => 'property is mutable',
         };
     }

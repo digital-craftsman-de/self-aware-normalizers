@@ -78,6 +78,7 @@ final class PlanLimitationReasonTest extends TestCase
                 'UNSUPPORTED_TYPE' => 'unsupported type',
                 'NOT_IN_SCOPE' => 'not in the scope of the known construction normalizer',
                 'RECURSIVE_CLASS' => 'references itself (directly or through other classes)',
+                'CLAIMED_BY_OTHER_NORMALIZER' => 'claimed by a normalizer with a higher priority',
                 'PROPERTY_IS_MUTABLE' => 'property is mutable',
             ],
             $descriptions,

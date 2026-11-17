@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Testing\KnownConstructionNormalizer;
+namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence;
 
 /**
- * Samples of an app for the SampleFactory of KnownConstructionNormalizerEquivalenceTestCase: the SampleFactory builds every class through its
+ * Samples of an app for the SampleFactory of EquivalenceTestCase: the SampleFactory builds every class through its
  * constructor with generated values, which isn't enough for value objects whose validation depends on several values (e.g. a date range
  * whose start must be before its end), that have no public constructor (e.g. ids built through a named constructor) or that need a
  * resource (e.g. an uploaded file). A provider returns a sample for those and null for everything else. Providers are asked in the order
- * returned by KnownConstructionNormalizerEquivalenceTestCase::sampleProviders(), before the built-in samples of the SampleFactory.
+ * returned by EquivalenceTestCase::sampleProviders(), before the built-in samples of the SampleFactory.
  */
 interface SampleProvider
 {

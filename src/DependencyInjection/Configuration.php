@@ -27,6 +27,7 @@ final class Configuration implements ConfigurationInterface
     public const string KNOWN_CONSTRUCTION_NORMALIZER_SUPPORTED_PARENT_TYPES_KEY = 'supported_parent_types';
     public const string KNOWN_CONSTRUCTION_NORMALIZER_ACCEPTED_UNPLANNED_CLASSES_KEY = 'accepted_unplanned_classes';
     public const string KNOWN_CONSTRUCTION_NORMALIZER_ACCEPTED_CONTEXT_KEYS_KEY = 'accepted_context_keys';
+    public const string KNOWN_CONSTRUCTION_NORMALIZER_NEUTRAL_NORMALIZERS_KEY = 'neutral_normalizers';
     public const string KNOWN_CONSTRUCTION_NORMALIZER_SOURCE_DIRECTORIES_KEY = 'source_directories';
     public const string KNOWN_CONSTRUCTION_NORMALIZER_PLAN_CACHE_POOL_KEY = 'plan_cache_pool';
     public const string KNOWN_CONSTRUCTION_NORMALIZER_FALLBACK_NORMALIZER_KEY = 'fallback_normalizer';
@@ -101,6 +102,11 @@ final class Configuration implements ConfigurationInterface
                                 ) !== [])
                                 ->thenInvalid('The accepted context keys must not contain options the known construction normalizer does not implement or only accepts with a specific value (see KnownConstructionNormalizer::NOT_IMPLEMENTED_CONTEXT_OPTIONS), %s given.')
                             ->end()
+                        ->end()
+                        ->arrayNode(self::KNOWN_CONSTRUCTION_NORMALIZER_NEUTRAL_NORMALIZERS_KEY)
+                            ->info('Service ids of normalizers with a higher priority than the known construction normalizer that never handle the classes in its scope or their values, although their getSupportedTypes() may claim them (e.g. "object" => false). Any other normalizer that may claim a class keeps that class from being handled inline.')
+                            ->defaultValue([])
+                            ->scalarPrototype()->end()
                         ->end()
                         ->arrayNode(self::KNOWN_CONSTRUCTION_NORMALIZER_SOURCE_DIRECTORIES_KEY)
                             ->info('Directories whose classes are listed by the list command (recursively), e.g. "%kernel.project_dir%/src".')

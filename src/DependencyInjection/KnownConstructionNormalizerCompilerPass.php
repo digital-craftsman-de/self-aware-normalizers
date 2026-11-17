@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace DigitalCraftsman\SelfAwareNormalizers\DependencyInjection;
 
+use Symfony\Component\DependencyInjection\Argument\IteratorArgument;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
+use Symfony\Component\DependencyInjection\Compiler\PriorityTaggedServiceTrait;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
@@ -25,6 +27,8 @@ use Symfony\Component\Serializer\Normalizer\PropertyNormalizer;
  * - registered as a normalizer of the serializer with a lower priority than the KnownConstructionNormalizer, so the serializer falls back to it for
  *   everything the KnownConstructionNormalizer doesn't support.
  *
+ * It also gives the PlanFactory the normalizers the serializer asks before the KnownConstructionNormalizer (see NormalizerChain).
+ *
  * Runs before the services are removed, when the arguments are final (autowired, bound and resolved to positions), so the checks see
  * what's really injected. Fails the container build with an explanation otherwise.
  *
@@ -32,6 +36,8 @@ use Symfony\Component\Serializer\Normalizer\PropertyNormalizer;
  */
 final readonly class KnownConstructionNormalizerCompilerPass implements CompilerPassInterface
 {
+    use PriorityTaggedServiceTrait;
+
     private const string NORMALIZER_TAG = 'serializer.normalizer';
 
     /**
@@ -53,6 +59,14 @@ final readonly class KnownConstructionNormalizerCompilerPass implements Compiler
     private const int KNOWN_CONSTRUCTION_NORMALIZER_ARGUMENT_FALLBACK_NORMALIZER = 1;
     private const int KNOWN_CONSTRUCTION_NORMALIZER_ARGUMENT_DEFAULT_CONTEXT = 4;
     private const int PLAN_FACTORY_ARGUMENT_PROPERTY_TYPE_EXTRACTOR = 0;
+    private const int PLAN_FACTORY_ARGUMENT_NORMALIZER_CHAIN = 3;
+    private const int NORMALIZER_CHAIN_ARGUMENT_PRECEDING_NORMALIZERS = 0;
+    private const int NORMALIZER_CHAIN_ARGUMENT_NEUTRAL_NORMALIZERS = 1;
+
+    /**
+     * Tag of the normalizers of the default serializer, added by the SerializerPass.
+     */
+    private const string DEFAULT_SERIALIZER_NORMALIZER_TAG = 'serializer.normalizer.default';
 
     /**
      * @param class-string $fallbackClass The class the fallback must be, PropertyNormalizer except in tests (e.g. of a constructor with
@@ -121,12 +135,49 @@ final readonly class KnownConstructionNormalizerCompilerPass implements Compiler
             throw self::invalidFallback($fallbackId, sprintf('Its priority (%d) must be lower than the one of the known construction normalizer (%d, self_aware_normalizers.known_construction_normalizer.priority).', $fallbackPriority, $knownConstructionNormalizerPriority));
         }
 
+        $this->configureNormalizerChain($container);
+
         $knownConstructionNormalizerArguments = $knownConstructionNormalizerDefinition->getArguments();
         $knownConstructionNormalizerDefaultContext = $knownConstructionNormalizerArguments[self::KNOWN_CONSTRUCTION_NORMALIZER_ARGUMENT_DEFAULT_CONTEXT] ?? [];
         $fallbackDefaultContext = $fallbackArguments[self::PARAMETER_DEFAULT_CONTEXT] ?? [];
         if ($container->getParameterBag()->resolveValue($knownConstructionNormalizerDefaultContext) != $container->getParameterBag()->resolveValue($fallbackDefaultContext)) {
             throw self::invalidFallback($fallbackId, 'It must have the same default context as the known construction normalizer, which gets the default context of the serializer. Don\'t set $defaultContext on the fallback.');
         }
+    }
+
+    /**
+     * Gives the NormalizerChain of the PlanFactory the normalizers the default serializer asks before the known construction normalizer,
+     * in its order (sorted exactly like the SerializerPass sorts them).
+     */
+    private function configureNormalizerChain(ContainerBuilder $container): void
+    {
+        $normalizerIds = array_map(
+            static fn (Reference $reference): string => (string) $reference,
+            $this->findAndSortTaggedServices(self::DEFAULT_SERIALIZER_NORMALIZER_TAG, $container),
+        );
+        $position = array_search(SelfAwareNormalizersExtension::KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID, $normalizerIds, true);
+        if ($position === false) {
+            throw new InvalidArgumentException('The known construction normalizer is not a normalizer of the default serializer. Don\'t remove its tag "serializer.normalizer" or restrict it to named serializers.');
+        }
+        $precedingIds = array_slice($normalizerIds, 0, $position);
+
+        /** @var Definition $normalizerChainDefinition Set by the extension */
+        $normalizerChainDefinition = $container->getDefinition(SelfAwareNormalizersExtension::PLAN_FACTORY_SERVICE_ID)
+            ->getArgument(self::PLAN_FACTORY_ARGUMENT_NORMALIZER_CHAIN);
+
+        /** @var list<string> $neutralNormalizerIds Set by the extension */
+        $neutralNormalizerIds = $normalizerChainDefinition->getArgument(self::NORMALIZER_CHAIN_ARGUMENT_NEUTRAL_NORMALIZERS);
+        foreach ($neutralNormalizerIds as $neutralNormalizerId) {
+            if (!in_array($neutralNormalizerId, $precedingIds, true)) {
+                throw new InvalidArgumentException(sprintf('The neutral normalizer "%s" (self_aware_normalizers.known_construction_normalizer.neutral_normalizers) is not a normalizer the serializer asks before the known construction normalizer. Remove it from the neutral normalizers.', $neutralNormalizerId));
+            }
+        }
+
+        $precedingNormalizers = [];
+        foreach ($precedingIds as $precedingId) {
+            $precedingNormalizers[$precedingId] = new Reference($precedingId);
+        }
+        $normalizerChainDefinition->replaceArgument(self::NORMALIZER_CHAIN_ARGUMENT_PRECEDING_NORMALIZERS, new IteratorArgument($precedingNormalizers));
     }
 
     /**

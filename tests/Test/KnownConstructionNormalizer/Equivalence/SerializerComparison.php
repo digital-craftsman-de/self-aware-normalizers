@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Testing\KnownConstructionNormalizer;
+namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence;
 
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\KnownConstructionNormalizer;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\PlanFactory;
@@ -23,7 +23,7 @@ use Symfony\Component\Serializer\Serializer;
  * - reference: clones of all normalizers except the KnownConstructionNormalizer, so the PropertyNormalizer handles every class like before,
  * - planOnly: like plan, but the fallback of the KnownConstructionNormalizer throws, to prove that the plan itself handles valid data.
  *
- * Used by KnownConstructionNormalizerEquivalenceTestCase and available for tests of apps with own fixtures.
+ * Used by EquivalenceTestCase and available for tests of apps with own fixtures.
  *
  * Outcomes are compared through a description of the result (classes and properties with their types, so an int doesn't equal a float and
  * an \ArrayObject doesn't equal an array) or of the exception (class, message and for serializer exceptions the deserialization path,

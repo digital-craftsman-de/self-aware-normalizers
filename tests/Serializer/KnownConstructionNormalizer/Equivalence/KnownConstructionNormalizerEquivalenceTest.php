@@ -2,11 +2,14 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Testing\KnownConstructionNormalizer;
+namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Equivalence;
 
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Exception\FallbackIsRequired;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\KnownConstructionNormalizer;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\PlanFactory;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence\EquivalenceTestCase;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence\SampleContext;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence\SampleProvider;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ArrayTypeMismatch;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ElementType;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Generic;
@@ -14,25 +17,21 @@ use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixtu
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Leaf;
 use PHPUnit\Framework\Attributes\CoversClass;
 
-require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Fixture/ReadModel/fixtures.php';
+require_once dirname(__DIR__, 3).'/Test/KnownConstructionNormalizer/Fixture/ReadModel/fixtures.php';
 
 /**
  * The equivalence test case like an app uses it, with the fixture classes as source.
  */
-#[CoversClass(KnownConstructionNormalizerEquivalenceTestCase::class)]
-#[CoversClass(SampleFactory::class)]
-#[CoversClass(SampleContext::class)]
-#[CoversClass(SerializerComparison::class)]
 #[CoversClass(KnownConstructionNormalizer::class)]
 #[CoversClass(PlanFactory::class)]
 #[CoversClass(FallbackIsRequired::class)]
-final class KnownConstructionNormalizerEquivalenceTest extends KnownConstructionNormalizerEquivalenceTestCase
+final class KnownConstructionNormalizerEquivalenceTest extends EquivalenceTestCase
 {
     #[\Override]
     protected static function sourceDirectories(): array
     {
         return [
-            dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Fixture',
+            dirname(__DIR__, 3).'/Test/KnownConstructionNormalizer/Fixture',
         ];
     }
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer;
 
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence\SerializerComparison;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence\ThrowingPropertyTypeExtractor;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Other\Settings;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\AdditionalParameter;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ArrayTypeMismatch;
@@ -51,8 +53,6 @@ use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixtu
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\StrictName;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Weight;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\NullPropertyTypeExtractor;
-use DigitalCraftsman\SelfAwareNormalizers\Testing\KnownConstructionNormalizer\SerializerComparison;
-use DigitalCraftsman\SelfAwareNormalizers\Testing\KnownConstructionNormalizer\ThrowingPropertyTypeExtractor;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;

@@ -6,13 +6,14 @@ namespace DigitalCraftsman\SelfAwareNormalizers\DependencyInjection;
 
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\KnownConstructionNormalizer;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\ListUnplannedClassesCommand;
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\NormalizerChain;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\PlanFactory;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence\SerializerComparison;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Leaf;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\FuturePropertyNormalizer;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\FuturePropertyNormalizerSubclass;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\FuturePropertyNormalizerWithRequiredParameter;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\TestKernel;
-use DigitalCraftsman\SelfAwareNormalizers\Testing\KnownConstructionNormalizer\SerializerComparison;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -573,7 +574,12 @@ final class KnownConstructionNormalizerCompilerPassTest extends TestCase
         $container = new ContainerBuilder();
         $container->setParameter('app.enabled', true);
         $container->setParameter('app.disabled', false);
-        $container->setDefinition(SelfAwareNormalizersExtension::PLAN_FACTORY_SERVICE_ID, new Definition(PlanFactory::class, [null]));
+        $container->setDefinition(SelfAwareNormalizersExtension::PLAN_FACTORY_SERVICE_ID, new Definition(PlanFactory::class, [
+            null,
+            null,
+            [],
+            new Definition(NormalizerChain::class, [null, []]),
+        ]));
         $container->setDefinition(SelfAwareNormalizersExtension::KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID, new Definition(KnownConstructionNormalizer::class, [
             new Reference(SelfAwareNormalizersExtension::PLAN_FACTORY_SERVICE_ID),
             new Reference('app.fallback'),
@@ -582,9 +588,15 @@ final class KnownConstructionNormalizerCompilerPassTest extends TestCase
         ]))
             ->addTag('serializer.normalizer', [
                 'priority' => -45,
+            ])
+            ->addTag('serializer.normalizer.default', [
+                'priority' => -45,
             ]);
         $container->setDefinition('app.fallback', new Definition($fallbackClass, $arguments))
             ->addTag('serializer.normalizer', [
+                'priority' => -50,
+            ])
+            ->addTag('serializer.normalizer.default', [
                 'priority' => -50,
             ]);
 
