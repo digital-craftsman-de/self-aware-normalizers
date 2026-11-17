@@ -68,6 +68,7 @@ use Symfony\Component\Serializer\Normalizer\UnwrappingDenormalizer;
 use Symfony\Component\Serializer\Serializer;
 
 require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Fixture/ReadModel/fixtures.php';
+require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Chain/fixtures.php';
 
 /**
  * Shapes, contexts and the plan cache of the KnownConstructionNormalizer with the fixture classes (Fixture/ReadModel/fixtures.php). Like
@@ -502,7 +503,7 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
         // -- Arrange
         $comparison = $this->comparison();
         $knownConstructionNormalizer = new KnownConstructionNormalizer(
-            new PlanFactory(new NullPropertyTypeExtractor(), '/\\\\Fixture\\\\ReadModel\\\\/', []),
+            new PlanFactory(new NullPropertyTypeExtractor()),
             $comparison->knownConstructionNormalizer,
             null,
             'test',
@@ -682,6 +683,52 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
         self::assertFalse(KnownConstructionNormalizer::isContextOptionAcceptable(Serializer::EMPTY_ARRAY_AS_OBJECT));
     }
 
+    /**
+     * There is no scope: every class that reaches the KnownConstructionNormalizer gets a plan attempt, the guards of the PlanFactory keep
+     * everything else with the PropertyNormalizer.
+     */
+    #[Test]
+    public function classes_of_any_namespace_get_a_plan_attempt(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $knownConstructionNormalizer = $comparison->knownConstructionNormalizer;
+        $entity = new class {
+            private string $name = 'Example';
+
+            public function name(): string
+            {
+                return $this->name;
+            }
+        };
+        $generator = (static function (): \Generator {
+            yield 1;
+        })();
+        $lazyLeaf = self::lazyLeaf();
+
+        // -- Act & Assert
+        // A plain class outside of a namespace of read models
+        self::assertTrue($knownConstructionNormalizer->supportsDenormalization(['name' => 'Example'], \DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Chain\ClaimedLeaf::class));
+        // Classes that aren't plain read models
+        self::assertFalse($knownConstructionNormalizer->supportsNormalization(new \DateTimeImmutable()));
+        self::assertFalse($knownConstructionNormalizer->supportsNormalization(new \stdClass()));
+        self::assertFalse($knownConstructionNormalizer->supportsNormalization(static fn (): null => null));
+        self::assertFalse($knownConstructionNormalizer->supportsNormalization($generator));
+        self::assertFalse($knownConstructionNormalizer->supportsNormalization(new \RuntimeException('Example')));
+        self::assertFalse($knownConstructionNormalizer->supportsNormalization($entity));
+        self::assertFalse($knownConstructionNormalizer->supportsNormalization(new Settings()));
+        // Types that aren't classes
+        self::assertFalse($knownConstructionNormalizer->supportsDenormalization(['name' => 'Example'], 'int'));
+        self::assertFalse($knownConstructionNormalizer->supportsDenormalization([['name' => 'Example']], Leaf::class.'[]'));
+        self::assertFalse($knownConstructionNormalizer->supportsDenormalization(['name' => 'Example'], 'App\\DoesNotExist'));
+        // A lazy object is initialized when it's read, like by the PropertyNormalizer
+        self::assertTrue($knownConstructionNormalizer->supportsNormalization($lazyLeaf));
+        self::assertSame(
+            SerializerComparison::outcome(static fn () => $comparison->reference->normalize(self::lazyLeaf())),
+            SerializerComparison::outcome(static fn () => $comparison->planOnly->normalize($lazyLeaf)),
+        );
+    }
+
     #[Test]
     public function direct_calls_with_data_the_plan_does_not_handle_use_the_fallback(): void
     {
@@ -777,7 +824,7 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
             $readingSerializer = $comparison->serializerWith(
                 static function (PlanFactory $planFactory, array $defaultContext) use ($comparison, $planCache, &$readingKnownConstructionNormalizers): KnownConstructionNormalizer {
                     $knownConstructionNormalizer = new KnownConstructionNormalizer(
-                        new PlanFactory(new ThrowingPropertyTypeExtractor(), '/\\\\Fixture\\\\ReadModel\\\\/', []),
+                        new PlanFactory(new ThrowingPropertyTypeExtractor()),
                         $comparison->knownConstructionNormalizer,
                         $planCache,
                         'test',
@@ -910,6 +957,14 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
     }
 
     // -- Helpers
+
+    private static function lazyLeaf(): Leaf
+    {
+        return new \ReflectionClass(Leaf::class)->newLazyGhost(static function (Leaf $leaf): void {
+            /** @psalm-suppress DirectConstructorCall That's how a lazy ghost is initialized */
+            $leaf->__construct('Lazy');
+        });
+    }
 
     /**
      * @param array<string, mixed> $defaultContext

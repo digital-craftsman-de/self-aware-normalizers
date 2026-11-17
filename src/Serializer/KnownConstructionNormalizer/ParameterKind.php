@@ -80,4 +80,14 @@ final readonly class ParameterKind
      * (Type, Type, "[]" per level), the types passed as context like by the PropertyNormalizer.
      */
     public const int OBJECT_LIST = 17;
+
+    /**
+     * Whether the values of the kind are self-aware value objects the plan handles inline (single or in a list).
+     */
+    public static function isValueObject(int $kind): bool
+    {
+        return ($kind >= self::VALUE_OBJECT_STRING
+            && $kind <= self::VALUE_OBJECT_ARRAY)
+            || $kind === self::VALUE_OBJECT_LIST;
+    }
 }

@@ -15,6 +15,7 @@ use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixtu
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Generic;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ImageElement;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Leaf;
+use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Sample\ArrayWithIterableDoc;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 require_once dirname(__DIR__, 3).'/Test/KnownConstructionNormalizer/Fixture/ReadModel/fixtures.php';
@@ -49,6 +50,8 @@ final class KnownConstructionNormalizerEquivalenceTest extends EquivalenceTestCa
     {
         return [
             Generic::class => static fn (): Generic => new Generic(new Leaf('Example')),
+            // The SampleFactory builds the PHPDoc type (iterable), not the native one
+            ArrayWithIterableDoc::class => static fn (): ArrayWithIterableDoc => new ArrayWithIterableDoc(['Example']),
             // The PHPDoc type (string) is wrong on purpose
             ArrayTypeMismatch::class => static fn (): ArrayTypeMismatch => new \ReflectionClass(ArrayTypeMismatch::class)->newInstance(['Example']),
         ];

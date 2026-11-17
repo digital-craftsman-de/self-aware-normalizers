@@ -23,12 +23,8 @@ final class Configuration implements ConfigurationInterface
 
     public const string KNOWN_CONSTRUCTION_NORMALIZER_KEY = 'known_construction_normalizer';
     public const string KNOWN_CONSTRUCTION_NORMALIZER_ENABLED_KEY = 'enabled';
-    public const string KNOWN_CONSTRUCTION_NORMALIZER_SUPPORTED_CLASS_NAME_PATTERN_KEY = 'supported_class_name_pattern';
-    public const string KNOWN_CONSTRUCTION_NORMALIZER_SUPPORTED_PARENT_TYPES_KEY = 'supported_parent_types';
-    public const string KNOWN_CONSTRUCTION_NORMALIZER_ACCEPTED_UNPLANNED_CLASSES_KEY = 'accepted_unplanned_classes';
     public const string KNOWN_CONSTRUCTION_NORMALIZER_ACCEPTED_CONTEXT_KEYS_KEY = 'accepted_context_keys';
     public const string KNOWN_CONSTRUCTION_NORMALIZER_NEUTRAL_NORMALIZERS_KEY = 'neutral_normalizers';
-    public const string KNOWN_CONSTRUCTION_NORMALIZER_SOURCE_DIRECTORIES_KEY = 'source_directories';
     public const string KNOWN_CONSTRUCTION_NORMALIZER_PLAN_CACHE_POOL_KEY = 'plan_cache_pool';
     public const string KNOWN_CONSTRUCTION_NORMALIZER_FALLBACK_NORMALIZER_KEY = 'fallback_normalizer';
     public const string KNOWN_CONSTRUCTION_NORMALIZER_PRIORITY_KEY = 'priority';
@@ -65,31 +61,6 @@ final class Configuration implements ConfigurationInterface
                     ->info('Fast path in front of the PropertyNormalizer for plain constructor-promoted classes (see README). Disabled by default.')
                     ->canBeEnabled()
                     ->children()
-                        ->scalarNode(self::KNOWN_CONSTRUCTION_NORMALIZER_SUPPORTED_CLASS_NAME_PATTERN_KEY)
-                            ->info('Regular expression matched against the fully qualified class name of the classes the known construction normalizer is responsible for (e.g. all classes in a ReadModel or DTO namespace).')
-                            ->defaultNull()
-                            ->validate()
-                                ->ifTrue(static fn (mixed $pattern): bool => $pattern !== null
-                                    && (
-                                        !is_string($pattern)
-                                        || $pattern === ''
-                                        || @preg_match($pattern, '') === false
-                                    ))
-                                ->thenInvalid('The supported class name pattern must be a valid regular expression, %s given.')
-                            ->end()
-                        ->end()
-                        ->arrayNode(self::KNOWN_CONSTRUCTION_NORMALIZER_SUPPORTED_PARENT_TYPES_KEY)
-                            ->info('Interfaces or parent classes of the classes the known construction normalizer is responsible for, e.g. the base classes of commands and queries.')
-                            ->defaultValue([])
-                            ->scalarPrototype()->end()
-                        ->end()
-                        ->arrayNode(self::KNOWN_CONSTRUCTION_NORMALIZER_ACCEPTED_UNPLANNED_CLASSES_KEY)
-                            ->info('Classes in the scope of the known construction normalizer that fall back to the PropertyNormalizer by design, with the reason (class => reason). Used by the list command with --fail-on-unplanned.')
-                            ->useAttributeAsKey('class')
-                            ->normalizeKeys(false)
-                            ->defaultValue([])
-                            ->scalarPrototype()->end()
-                        ->end()
                         ->arrayNode(self::KNOWN_CONSTRUCTION_NORMALIZER_ACCEPTED_CONTEXT_KEYS_KEY)
                             ->info('Further context keys the known construction normalizer is used with, for options of the project that the project guarantees not to change the result of the PropertyNormalizer (e.g. options of its own normalizers). A context with any other key that is not built in falls back to the PropertyNormalizer.')
                             ->defaultValue([])
@@ -104,12 +75,7 @@ final class Configuration implements ConfigurationInterface
                             ->end()
                         ->end()
                         ->arrayNode(self::KNOWN_CONSTRUCTION_NORMALIZER_NEUTRAL_NORMALIZERS_KEY)
-                            ->info('Service ids of normalizers with a higher priority than the known construction normalizer that never handle the classes in its scope or their values, although their getSupportedTypes() may claim them (e.g. "object" => false). Any other normalizer that may claim a class keeps that class from being handled inline.')
-                            ->defaultValue([])
-                            ->scalarPrototype()->end()
-                        ->end()
-                        ->arrayNode(self::KNOWN_CONSTRUCTION_NORMALIZER_SOURCE_DIRECTORIES_KEY)
-                            ->info('Directories whose classes are listed by the list command (recursively), e.g. "%kernel.project_dir%/src".')
+                            ->info('Service ids of normalizers with a higher priority than the known construction normalizer that never handle the classes it plans or their values, although their getSupportedTypes() may claim them (e.g. "object" => false). Any other normalizer that may claim a class keeps that class from being handled inline.')
                             ->defaultValue([])
                             ->scalarPrototype()->end()
                         ->end()
@@ -126,12 +92,6 @@ final class Configuration implements ConfigurationInterface
                             ->info('Priority of the known construction normalizer in the serializer. Must be lower than the one of the BackedEnumNormalizer and higher than the one of the fallback normalizer.')
                             ->defaultValue(self::DEFAULT_KNOWN_CONSTRUCTION_NORMALIZER_PRIORITY)
                         ->end()
-                    ->end()
-                    ->validate()
-                        ->ifTrue(static fn (array $config): bool => $config[self::KNOWN_CONSTRUCTION_NORMALIZER_ENABLED_KEY] === true
-                            && $config[self::KNOWN_CONSTRUCTION_NORMALIZER_SUPPORTED_CLASS_NAME_PATTERN_KEY] === null
-                            && $config[self::KNOWN_CONSTRUCTION_NORMALIZER_SUPPORTED_PARENT_TYPES_KEY] === [])
-                        ->thenInvalid('The known construction normalizer needs a scope: configure the supported class name pattern or supported parent types.')
                     ->end()
                 ->end()
             ->end()

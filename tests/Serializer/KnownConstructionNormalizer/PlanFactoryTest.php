@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer;
 
+use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizableNormalizer;
+use DigitalCraftsman\SelfAwareNormalizers\Test\ConstructFinder\SomeTrait;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence\ThrowingPropertyTypeExtractor;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Described;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Leaf;
@@ -33,10 +35,10 @@ require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Fixture/Read
 final class PlanFactoryTest extends TestCase
 {
     #[Test]
-    public function limitations_of_classes_outside_of_the_scope_are_diagnosed_by_the_plan_factory(): void
+    public function limitations_of_kinds_of_classes_are_diagnosed_by_the_plan_factory(): void
     {
         // -- Arrange
-        $planFactory = new PlanFactory(new NullPropertyTypeExtractor(), '/\\\\Fixture\\\\ReadModel\\\\/', []);
+        $planFactory = new PlanFactory(new NullPropertyTypeExtractor());
         $hasPlan = static fn (string $class): bool => false;
 
         // -- Act
@@ -56,51 +58,47 @@ final class PlanFactoryTest extends TestCase
     }
 
     #[Test]
-    public function exceptions_are_not_in_scope(): void
+    public function classes_that_are_no_read_models_get_no_plan(): void
     {
         // -- Arrange
-        $planFactory = new PlanFactory(new NullPropertyTypeExtractor(), '/\\\\Fixture\\\\ReadModel\\\\/', []);
-
-        // -- Act
-        $isExceptionInScope = $planFactory->isInScope(ReadModelFailed::class);
-        $isReadModelInScope = $planFactory->isInScope(Leaf::class);
-
-        // -- Assert
-        // Both in a ReadModel namespace
-        self::assertFalse($isExceptionInScope);
-        self::assertTrue($isReadModelInScope);
-    }
-
-    #[Test]
-    public function classes_are_in_scope_through_the_pattern_or_a_parent_type(): void
-    {
-        // -- Arrange
-        $planFactoryWithParentTypes = new PlanFactory(new NullPropertyTypeExtractor(), null, [\Countable::class, \IteratorAggregate::class]);
-        $planFactoryWithPattern = new PlanFactory(new NullPropertyTypeExtractor(), '/\\\\Fixture\\\\ReadModel\\\\/', []);
+        $planFactory = new PlanFactory(new NullPropertyTypeExtractor());
+        $hasPlan = static fn (string $class): bool => false;
+        $anonymousClass = new readonly class('Example') {
+            public function __construct(
+                public string $name,
+            ) {
+            }
+        };
 
         // -- Act & Assert
-        self::assertTrue($planFactoryWithParentTypes->isInScope(\ArrayObject::class));
-        self::assertTrue($planFactoryWithParentTypes->isInScope(\ArrayIterator::class));
-        self::assertFalse($planFactoryWithParentTypes->isInScope(\DateTimeImmutable::class));
-        // Not matched without a pattern
-        self::assertFalse($planFactoryWithParentTypes->isInScope(Leaf::class));
-        // Matched, but doesn't exist
-        self::assertFalse($planFactoryWithPattern->isInScope('DigitalCraftsman\\SelfAwareNormalizers\\Test\\KnownConstructionNormalizer\\Fixture\\ReadModel\\DoesNotExist'));
-        self::assertFalse($planFactoryWithPattern->isInScope(\ArrayObject::class));
+        self::assertEquals(Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::EXCEPTION), $planFactory->diagnose(ReadModelFailed::class, $hasPlan)->limitation);
+        self::assertEquals(Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::ANONYMOUS_CLASS), $planFactory->diagnose($anonymousClass::class, $hasPlan)->limitation);
+        self::assertEquals(Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::INTERNAL_CLASS), $planFactory->diagnose(\Closure::class, $hasPlan)->limitation);
+        self::assertEquals(Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::INTERNAL_CLASS), $planFactory->diagnose(\Generator::class, $hasPlan)->limitation);
+        self::assertEquals(Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::INTERNAL_CLASS), $planFactory->diagnose(\DateTimeImmutable::class, $hasPlan)->limitation);
+        self::assertEquals(Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::INTERNAL_CLASS), $planFactory->diagnose(\stdClass::class, $hasPlan)->limitation);
+        foreach (['int', 'Example[]', 'DigitalCraftsman\\SelfAwareNormalizers\\DoesNotExist', SomeTrait::class] as $type) {
+            /** @var class-string $type */
+            self::assertEquals(Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::NOT_A_CLASS), $planFactory->diagnose($type, $hasPlan)->limitation, $type);
+        }
     }
 
     #[Test]
-    public function factory_with_another_type_extractor_keeps_the_scope(): void
+    public function factory_with_another_type_extractor_keeps_the_normalizer_chain(): void
     {
         // -- Arrange
-        $planFactory = new PlanFactory(new NullPropertyTypeExtractor(), '/\\\\Fixture\\\\ReadModel\\\\/', [\Countable::class]);
+        $planFactory = new PlanFactory(new NullPropertyTypeExtractor(), new NormalizerChain([
+            'app.normalizer' => new StringNormalizableNormalizer(),
+        ]));
 
         // -- Act
         $planFactoryWithOtherTypeExtractor = $planFactory->withPropertyTypeExtractor(new ThrowingPropertyTypeExtractor());
 
         // -- Assert
-        self::assertTrue($planFactoryWithOtherTypeExtractor->isInScope(Leaf::class));
-        self::assertTrue($planFactoryWithOtherTypeExtractor->isInScope(\ArrayObject::class));
+        self::assertEquals(
+            new \ReflectionProperty(PlanFactory::class, 'normalizerChain')->getValue($planFactory),
+            new \ReflectionProperty(PlanFactory::class, 'normalizerChain')->getValue($planFactoryWithOtherTypeExtractor),
+        );
         self::assertEquals(
             new Diagnosis\PlanLimitation(
                 Diagnosis\PlanLimitationReason::TYPE_IS_NOT_RESOLVABLE,
@@ -119,7 +117,7 @@ final class PlanFactoryTest extends TestCase
     public function native_array_type_overrules_the_phpdoc_type_like_for_the_property_normalizer(): void
     {
         // -- Arrange
-        $planFactory = new PlanFactory(new PropertyInfoExtractor([], [new PhpDocExtractor(), new ReflectionExtractor()]), null, []);
+        $planFactory = new PlanFactory(new PropertyInfoExtractor([], [new PhpDocExtractor(), new ReflectionExtractor()]));
         $hasPlan = static fn (string $class): bool => false;
 
         // -- Act
@@ -150,7 +148,7 @@ final class PlanFactoryTest extends TestCase
     public function type_that_can_not_be_resolved_leads_to_no_plan_instead_of_an_exception(): void
     {
         // -- Arrange
-        $planFactory = new PlanFactory(new ThrowingPropertyTypeExtractor(), '/\\\\Fixture\\\\ReadModel\\\\/', []);
+        $planFactory = new PlanFactory(new ThrowingPropertyTypeExtractor());
         $hasPlan = static fn (string $class): bool => false;
 
         // -- Act

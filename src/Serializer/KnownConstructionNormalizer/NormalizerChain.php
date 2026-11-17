@@ -27,7 +27,7 @@ use Symfony\Component\Serializer\Normalizer\UnwrappingDenormalizer;
  * - the self-aware normalizers of this bundle: the plan mirrors them for value objects, so a class they claim is handled by them either way,
  * - neutral normalizers: built-in ones whose support is gated by something the KnownConstructionNormalizer doesn't support anyway (see
  *   NEUTRAL_BUILT_IN_NORMALIZERS), and the ones the application declares (self_aware_normalizers.known_construction_normalizer.neutral_normalizers)
- *   because they never handle the classes in scope or their values.
+ *   because they never handle the classes of a plan or their values.
  *
  * Determined once per class while the plan is built, so the result is part of the cached plan.
  */

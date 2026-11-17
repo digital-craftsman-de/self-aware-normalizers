@@ -103,20 +103,14 @@ final readonly class PlanFactory
     private TypeContextFactory $typeContextFactory;
 
     /**
-     * The scope is the classes whose name matches the pattern and the classes extending or implementing one of the parent types.
-     *
-     * @param PropertyTypeExtractorInterface $propertyTypeExtractor     Must be the type extractor of the PropertyNormalizer the
-     *                                                                  KnownConstructionNormalizer falls back to
-     * @param non-empty-string|null          $supportedClassNamePattern Regular expression matched against the fully qualified class name
-     * @param list<class-string>             $supportedParentTypes      Interfaces or parent classes
-     * @param NormalizerChain                $normalizerChain           The normalizers of the serializer in front of the
-     *                                                                  KnownConstructionNormalizer, which may claim classes the plan
-     *                                                                  would otherwise handle inline
+     * @param PropertyTypeExtractorInterface $propertyTypeExtractor Must be the type extractor of the PropertyNormalizer the
+     *                                                              KnownConstructionNormalizer falls back to
+     * @param NormalizerChain                $normalizerChain       The normalizers of the serializer in front of the
+     *                                                              KnownConstructionNormalizer, which may claim classes the plan would
+     *                                                              otherwise handle inline
      */
     public function __construct(
         private PropertyTypeExtractorInterface $propertyTypeExtractor,
-        private ?string $supportedClassNamePattern,
-        private array $supportedParentTypes,
         private NormalizerChain $normalizerChain = new NormalizerChain(),
     ) {
         $this->reflectionTypeResolver = new ReflectionTypeResolver();
@@ -128,7 +122,7 @@ final readonly class PlanFactory
      */
     public function withPropertyTypeExtractor(PropertyTypeExtractorInterface $propertyTypeExtractor): self
     {
-        return new self($propertyTypeExtractor, $this->supportedClassNamePattern, $this->supportedParentTypes, $this->normalizerChain);
+        return new self($propertyTypeExtractor, $this->normalizerChain);
     }
 
     /**
@@ -138,32 +132,6 @@ final readonly class PlanFactory
     public function isHandledInline(string $class): bool
     {
         return $this->normalizerChain->claimOf($class) === null;
-    }
-
-    /**
-     * Whether the class is one the normalizer is configured for (independent of whether its shape can be planned). Exceptions are never
-     * (de)normalized as read models, DTOs, commands, queries or events, even when they live in such a namespace (e.g.
-     * ReadModel\Exception).
-     */
-    public function isInScope(string $class): bool
-    {
-        if (is_subclass_of($class, \Throwable::class)) {
-            return false;
-        }
-
-        if ($this->supportedClassNamePattern !== null
-            && preg_match($this->supportedClassNamePattern, $class) === 1
-        ) {
-            return class_exists($class);
-        }
-
-        foreach ($this->supportedParentTypes as $parentType) {
-            if (is_subclass_of($class, $parentType)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -190,6 +158,12 @@ final readonly class PlanFactory
         string $class,
         \Closure $hasPlan,
     ): Diagnosis\PlanDiagnosis {
+        if (!class_exists($class)
+            && !interface_exists($class)
+        ) {
+            return Diagnosis\PlanDiagnosis::notPlanned(Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::NOT_A_CLASS));
+        }
+
         $reflectionClass = new \ReflectionClass($class);
         if (!$reflectionClass->isInterface()
             && !$reflectionClass->isEnum()
@@ -207,6 +181,10 @@ final readonly class PlanFactory
             $reflectionClass->isEnum() => Diagnosis\PlanLimitationReason::ENUM,
             $reflectionClass->isAbstract() => Diagnosis\PlanLimitationReason::ABSTRACT_CLASS,
             $reflectionClass->isInternal() => Diagnosis\PlanLimitationReason::INTERNAL_CLASS,
+            // Exceptions are never read models, DTOs, commands, queries or events (and have inherited, non-public properties anyway)
+            $reflectionClass->implementsInterface(\Throwable::class) => Diagnosis\PlanLimitationReason::EXCEPTION,
+            // The name of an anonymous class can't be part of the key of a cached plan
+            $reflectionClass->isAnonymous() => Diagnosis\PlanLimitationReason::ANONYMOUS_CLASS,
             // The only remaining reason for a class not to be instantiable
             !$reflectionClass->isInstantiable() => Diagnosis\PlanLimitationReason::CONSTRUCTOR_IS_NOT_PUBLIC,
             default => null,

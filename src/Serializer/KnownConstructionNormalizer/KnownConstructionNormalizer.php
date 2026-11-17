@@ -29,7 +29,8 @@ use Symfony\Component\TypeInfo\Type;
  * events). It knows in advance how each object is constructed: containers through a constructor that mirrors their promoted properties,
  * self-aware value objects through their denormalize() / normalize(). That knowledge is precomputed per class as a plan. It produces the
  * same results as the PropertyNormalizer, but without its per object machinery (type resolution per parameter, attribute loops, context
- * handling, normalizer selection per value). The classes it's responsible for are configured through the scope of the PlanFactory.
+ * handling, normalizer selection per value). Every class that reaches it gets a plan attempt, classes the plan can't express keep the
+ * PropertyNormalizer.
  *
  * Per class, a plan is built once (PlanFactory): per constructor parameter the kind of value and the class to build. Denormalization
  * still constructs every object: value objects through their static denormalize() (digital-craftsman/self-aware-normalizers), the
@@ -247,6 +248,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
      * @param string               $planCacheVersion    Version of the code (e.g. the build id of the container), part of the cache key, so a
      *                                                  cached plan never outlives the code it was built from
      * @param array<string, mixed> $defaultContext
+     * @param ?Debug\Recorder      $recorder            Only in debug mode with the profiler
      * @param list<string>         $acceptedContextKeys Further context options that don't change the result of the PropertyNormalizer
      *                                                  (guaranteed by the application), e.g. options of its own normalizers. Must be
      *                                                  acceptable (see isContextOptionAcceptable(), validated by the configuration).
@@ -258,6 +260,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         private readonly string $planCacheVersion,
         private readonly array $defaultContext = [],
         private readonly array $acceptedContextKeys = [],
+        private readonly ?Debug\Recorder $recorder = null,
     ) {
         $this->acceptedContextOptions = self::ACCEPTED_CONTEXT_OPTIONS + array_fill_keys($acceptedContextKeys, true);
 
@@ -308,10 +311,17 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         ?string $format = null,
         array $context = [],
     ): bool {
-        return is_array($data)
+        $isSupported = is_array($data)
             && self::isFormatSupported($format)
             && $this->plan($type) !== false
             && $this->isContextSupported($context);
+        if (!$isSupported
+            && $this->recorder !== null
+        ) {
+            $this->recorder->notSupported(Debug\Recorder::DENORMALIZE, $type, $this->reasonOfNotSupported(false, is_array($data), $type, $format, $context));
+        }
+
+        return $isSupported;
     }
 
     /**
@@ -332,10 +342,10 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         }
 
         /**
-         * @var class-string $type Only classes in scope have a plan
+         * @var class-string $type Only classes have a plan
          */
         try {
-            return $this->build(
+            $object = $this->build(
                 $data,
                 $type,
                 $plan,
@@ -343,9 +353,15 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
                 $format,
                 $context,
             );
-        } catch (Exception\FallbackIsRequired) {
+        } catch (Exception\FallbackIsRequired $exception) {
+            $this->recorder?->fellBack(Debug\Recorder::DENORMALIZE, $type, $exception->describe());
+
             return $this->fallbackNormalizer->denormalize($data, $type, $format, $context);
         }
+
+        $this->recorder?->handledByPlan(Debug\Recorder::DENORMALIZE, $type);
+
+        return $object;
     }
 
     /**
@@ -377,7 +393,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
                     continue;
                 }
 
-                throw new Exception\FallbackIsRequired();
+                throw Exception\FallbackIsRequired::missingValue()->at($class, $name);
             }
 
             $value = $data[$name];
@@ -387,83 +403,87 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
                     continue;
                 }
 
-                throw new Exception\FallbackIsRequired();
+                throw Exception\FallbackIsRequired::nullForNonNullableParameter()->at($class, $name);
             }
 
             /**
              * @var class-string $targetClass Only used for the kinds with a class
              */
-            $arguments[$name] = match ($kind) {
-                ParameterKind::STRING => is_string($value)
-                    ? $value
-                    : throw new Exception\FallbackIsRequired(),
-                ParameterKind::INT => is_int($value)
-                    ? $value
-                    : throw new Exception\FallbackIsRequired(),
-                ParameterKind::FLOAT => self::denormalizeFloat($value, $isIntCastToFloat),
-                ParameterKind::BOOL => is_bool($value)
-                    ? $value
-                    : throw new Exception\FallbackIsRequired(),
-                ParameterKind::MIXED => $value,
-                ParameterKind::ARRAY => is_array($value)
-                    ? $value
-                    : throw new Exception\FallbackIsRequired(),
-                ParameterKind::SCALAR_LIST => is_array($value)
-                    /**
-                     * @var ScalarListSpec $extra
-                     */
-                    ? self::validateScalarList($value, $extra, $isIntCastToFloat)
-                    : throw new Exception\FallbackIsRequired(),
-                ParameterKind::VALUE_OBJECT_STRING,
-                ParameterKind::VALUE_OBJECT_INT,
-                ParameterKind::VALUE_OBJECT_FLOAT,
-                ParameterKind::VALUE_OBJECT_BOOL,
-                ParameterKind::VALUE_OBJECT_ARRAY => self::denormalizeValueObject($value, $kind, $targetClass),
-                ParameterKind::NESTED => is_array($value)
-                    ? $this->buildNested($value, $targetClass, $isIntCastToFloat, $format, $context)
-                    : throw new Exception\FallbackIsRequired(),
-                ParameterKind::OBJECT => $this->denormalizeThroughSerializer(
-                    $value,
-                    $targetClass,
-                    $format,
-                    self::contextOfObject($value, $extra === true, $context),
-                ),
-                ParameterKind::VALUE_OBJECT_LIST => is_array($value)
-                    /**
-                     * @var list{0: int, 1: int} $extra
-                     */
-                    ? self::denormalizeValueObjectList($value, $targetClass, $extra[0], $extra[1])
-                    : throw new Exception\FallbackIsRequired(),
-                ParameterKind::NESTED_LIST => is_array($value)
-                    /**
-                     * @var non-empty-list<int> $extra
-                     */
-                    ? $this->buildNestedList($value, $targetClass, $extra, $isIntCastToFloat, $format, $context)
-                    : throw new Exception\FallbackIsRequired(),
-                ParameterKind::OBJECT_LIST => is_array($value)
-                    /**
-                     * @var list{0: Type, 1: Type, 2: string} $extra
-                     */
-                    ? $this->denormalizeThroughSerializer(
+            try {
+                $arguments[$name] = match ($kind) {
+                    ParameterKind::STRING => is_string($value)
+                        ? $value
+                        : throw Exception\FallbackIsRequired::unexpectedValue('string', $value),
+                    ParameterKind::INT => is_int($value)
+                        ? $value
+                        : throw Exception\FallbackIsRequired::unexpectedValue('int', $value),
+                    ParameterKind::FLOAT => self::denormalizeFloat($value, $isIntCastToFloat),
+                    ParameterKind::BOOL => is_bool($value)
+                        ? $value
+                        : throw Exception\FallbackIsRequired::unexpectedValue('bool', $value),
+                    ParameterKind::MIXED => $value,
+                    ParameterKind::ARRAY => is_array($value)
+                        ? $value
+                        : throw Exception\FallbackIsRequired::unexpectedValue('array', $value),
+                    ParameterKind::SCALAR_LIST => is_array($value)
+                        /**
+                         * @var ScalarListSpec $extra
+                         */
+                        ? self::validateScalarList($value, $extra, $isIntCastToFloat)
+                        : throw Exception\FallbackIsRequired::unexpectedValue('array', $value),
+                    ParameterKind::VALUE_OBJECT_STRING,
+                    ParameterKind::VALUE_OBJECT_INT,
+                    ParameterKind::VALUE_OBJECT_FLOAT,
+                    ParameterKind::VALUE_OBJECT_BOOL,
+                    ParameterKind::VALUE_OBJECT_ARRAY => self::denormalizeValueObject($value, $kind, $targetClass),
+                    ParameterKind::NESTED => is_array($value)
+                        ? $this->buildNested($value, $targetClass, $isIntCastToFloat, $format, $context)
+                        : throw Exception\FallbackIsRequired::unexpectedValue('array', $value),
+                    ParameterKind::OBJECT => $this->denormalizeThroughSerializer(
                         $value,
-                        $targetClass.$extra[2],
+                        $targetClass,
                         $format,
-                        [
-                            'key_type' => $extra[0],
-                            'value_type' => $extra[1],
-                        ] + $context,
-                    )
-                    : throw new Exception\FallbackIsRequired(),
-            };
+                        self::contextOfObject($value, $extra === true, $context),
+                    ),
+                    ParameterKind::VALUE_OBJECT_LIST => is_array($value)
+                        /**
+                         * @var list{0: int, 1: int} $extra
+                         */
+                        ? self::denormalizeValueObjectList($value, $targetClass, $extra[0], $extra[1])
+                        : throw Exception\FallbackIsRequired::unexpectedValue('array', $value),
+                    ParameterKind::NESTED_LIST => is_array($value)
+                        /**
+                         * @var non-empty-list<int> $extra
+                         */
+                        ? $this->buildNestedList($value, $targetClass, $extra, $isIntCastToFloat, $format, $context)
+                        : throw Exception\FallbackIsRequired::unexpectedValue('array', $value),
+                    ParameterKind::OBJECT_LIST => is_array($value)
+                        /**
+                         * @var list{0: Type, 1: Type, 2: string} $extra
+                         */
+                        ? $this->denormalizeThroughSerializer(
+                            $value,
+                            $targetClass.$extra[2],
+                            $format,
+                            [
+                                'key_type' => $extra[0],
+                                'value_type' => $extra[1],
+                            ] + $context,
+                        )
+                        : throw Exception\FallbackIsRequired::unexpectedValue('array', $value),
+                };
+            } catch (Exception\FallbackIsRequired $exception) {
+                throw $exception->at($class, $name);
+            }
         }
 
         // Named arguments (like the PropertyNormalizer), so a plan that doesn't match the constructor (anymore) fails instead of passing
         // values to the wrong parameters
         try {
             return new $class(...$arguments);
-        } catch (\Error) {
+        } catch (\Error $error) {
             // A TypeError or an unknown or missing parameter: the PropertyNormalizer reports it through reflection, with its own message
-            throw new Exception\FallbackIsRequired();
+            throw Exception\FallbackIsRequired::constructorFailed($error)->at($class, null);
         }
     }
 
@@ -481,7 +501,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         ?string $format,
         array $context,
     ): object {
-        $plan = ($this->plans[$class] ?? $this->plan($class)) ?: throw new Exception\FallbackIsRequired();
+        $plan = ($this->plans[$class] ?? $this->plan($class)) ?: throw Exception\FallbackIsRequired::noPlan($class);
 
         return $this->build($data, $class, $plan, $isIntCastToFloat, $format, $context);
     }
@@ -508,7 +528,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         ?string $format,
         array $context,
     ): array {
-        $plan = ($this->plans[$class] ?? $this->plan($class)) ?: throw new Exception\FallbackIsRequired();
+        $plan = ($this->plans[$class] ?? $this->plan($class)) ?: throw Exception\FallbackIsRequired::noPlan($class);
 
         return $this->buildNestedListLevel($data, $class, $plan, $keyChecks, 0, $isIntCastToFloat, $format, $context);
     }
@@ -538,7 +558,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         $isInnermostLevel = !isset($keyChecks[$level + 1]);
         foreach ($data as $key => $element) {
             if (!is_array($element)) {
-                throw new Exception\FallbackIsRequired();
+                throw Exception\FallbackIsRequired::unexpectedValue('array', $element);
             }
 
             self::validateKey($key, $keyCheck);
@@ -590,7 +610,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
             // AbstractObjectNormalizer::validateAndDenormalize() swallows it for a nullable (union) type and throws its own exception
             // instead. Every other exception of the serializer (and any other exception) is thrown by the PropertyNormalizer as is,
             // with or without a nullable type, so it's left to bubble up the same way.
-            throw new Exception\FallbackIsRequired();
+            throw Exception\FallbackIsRequired::valueObjectNotDenormalizable();
         }
     }
 
@@ -610,32 +630,32 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
              */
             ParameterKind::VALUE_OBJECT_STRING => is_string($value)
                 ? $class::denormalize($value)
-                : throw new Exception\FallbackIsRequired(),
+                : throw Exception\FallbackIsRequired::unexpectedValue('string', $value),
             /**
              * @var class-string<IntNormalizable> $class
              */
             ParameterKind::VALUE_OBJECT_INT => is_int($value)
                 ? $class::denormalize($value)
-                : throw new Exception\FallbackIsRequired(),
+                : throw Exception\FallbackIsRequired::unexpectedValue('int', $value),
             /**
              * @var class-string<FloatNormalizable> $class
              */
             ParameterKind::VALUE_OBJECT_FLOAT => is_float($value)
             || is_int($value)
                 ? $class::denormalize($value)
-                : throw new Exception\FallbackIsRequired(),
+                : throw Exception\FallbackIsRequired::unexpectedValue('float', $value),
             /**
              * @var class-string<BoolNormalizable> $class
              */
             ParameterKind::VALUE_OBJECT_BOOL => is_bool($value)
                 ? $class::denormalize($value)
-                : throw new Exception\FallbackIsRequired(),
+                : throw Exception\FallbackIsRequired::unexpectedValue('bool', $value),
             /**
              * @var class-string<ArrayNormalizable> $class
              */
             ParameterKind::VALUE_OBJECT_ARRAY => is_array($value)
                 ? $class::denormalize($value)
-                : throw new Exception\FallbackIsRequired(),
+                : throw Exception\FallbackIsRequired::unexpectedValue('array', $value),
         };
     }
 
@@ -693,11 +713,11 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
             if ($this->denormalizer->supportsDenormalization($value, $type, $format, $context)) {
                 return $this->denormalizer->denormalize($value, $type, $format, $context);
             }
-        } catch (\Throwable) {
-            throw new Exception\FallbackIsRequired();
+        } catch (\Throwable $exception) {
+            throw Exception\FallbackIsRequired::serializerFailed($type, $exception);
         }
 
-        throw new Exception\FallbackIsRequired();
+        throw Exception\FallbackIsRequired::serializerFailed($type, null);
     }
 
     /**
@@ -737,26 +757,26 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         if ($element === null) {
             return $isNullable
                 ? null
-                : throw new Exception\FallbackIsRequired();
+                : throw Exception\FallbackIsRequired::unexpectedValue('non-null element', $element);
         }
 
         return match ($kind) {
             ParameterKind::STRING => is_string($element)
                 ? $element
-                : throw new Exception\FallbackIsRequired(),
+                : throw Exception\FallbackIsRequired::unexpectedValue('string', $element),
             ParameterKind::INT => is_int($element)
                 ? $element
-                : throw new Exception\FallbackIsRequired(),
+                : throw Exception\FallbackIsRequired::unexpectedValue('int', $element),
             ParameterKind::BOOL => is_bool($element)
                 ? $element
-                : throw new Exception\FallbackIsRequired(),
+                : throw Exception\FallbackIsRequired::unexpectedValue('bool', $element),
             ParameterKind::FLOAT => self::denormalizeFloat($element, $isIntCastToFloat),
             ParameterKind::SCALAR_LIST => is_array($element)
                 /**
                  * @var ScalarListSpec $innerSpec
                  */
                 ? self::validateScalarList($element, $innerSpec, $isIntCastToFloat)
-                : throw new Exception\FallbackIsRequired(),
+                : throw Exception\FallbackIsRequired::unexpectedValue('array', $element),
         };
     }
 
@@ -778,7 +798,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
             return (float) $value;
         }
 
-        throw new Exception\FallbackIsRequired();
+        throw Exception\FallbackIsRequired::unexpectedValue('float', $value);
     }
 
     /**
@@ -796,7 +816,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
             KeyCheck::UNCHECKED => true,
         };
         if (!$isKeyValid) {
-            throw new Exception\FallbackIsRequired();
+            throw Exception\FallbackIsRequired::invalidKey($key);
         }
     }
 
@@ -827,17 +847,21 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         ?string $format = null,
         array $context = [],
     ): bool {
-        if (!is_object($data)
-            || !self::isFormatSupported($format)
-        ) {
+        if (!is_object($data)) {
             return false;
         }
 
-        $plan = $this->plans[$data::class] ?? $this->plan($data::class);
-
-        return $plan !== false
+        $isSupported = self::isFormatSupported($format)
+            && ($plan = $this->plans[$data::class] ?? $this->plan($data::class)) !== false
             && $plan['isNormalizable']
             && $this->isContextSupported($context);
+        if (!$isSupported
+            && $this->recorder !== null
+        ) {
+            $this->recorder->notSupported(Debug\Recorder::NORMALIZE, $data::class, $this->reasonOfNotSupported(true, true, $data::class, $format, $context));
+        }
+
+        return $isSupported;
     }
 
     /**
@@ -855,6 +879,10 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         if ($plan === false
             || !$plan['isNormalizable']
         ) {
+            if (is_object($data)) {
+                $this->recorder?->fellBack(Debug\Recorder::NORMALIZE, $data::class, Debug\Recorder::REASON_NO_PLAN);
+            }
+
             /**
              * @var array<string, mixed>|\ArrayObject<string, mixed>
              */
@@ -865,6 +893,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
          * @var object $data
          */
         unset($context['cache_key']);
+        $this->recorder?->handledByPlan(Debug\Recorder::NORMALIZE, $data::class);
 
         return $this->normalizeObject(
             $data,
@@ -1013,16 +1042,12 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
             return $this->plans[$class];
         }
 
-        if (!$this->planFactory->isInScope($class)) {
-            return $this->plans[$class] = false;
-        }
-
         /**
-         * @var class-string $class Checked by isInScope()
+         * @var class-string $class Any type, the PlanFactory leaves types that aren't a class without plan
          */
         $planCache = $this->planCache;
         if ($planCache === null) {
-            return $this->plans[$class] = $this->createPlan($class);
+            return $this->plans[$class] = $this->createRecordedPlan($class);
         }
 
         $cacheItem = $planCache->getItem(sprintf(
@@ -1036,14 +1061,35 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
              * @var ClassPlan|false $plan
              */
             $plan = $cacheItem->get();
+            $this->recorder?->planLoadedFromPool($class);
 
             return $this->plans[$class] = $plan;
         }
 
-        $plan = $this->createPlan($class);
+        $plan = $this->createRecordedPlan($class);
         $planCache->save($cacheItem->set($plan));
 
         return $this->plans[$class] = $plan;
+    }
+
+    /**
+     * createPlan() with the time it took for the recorder (only measured with a recorder).
+     *
+     * @param class-string $class
+     *
+     * @return ClassPlan|false
+     */
+    private function createRecordedPlan(string $class): array | false
+    {
+        if ($this->recorder === null) {
+            return $this->createPlan($class);
+        }
+
+        $start = hrtime(true);
+        $plan = $this->createPlan($class);
+        $this->recorder->planBuilt($class, (hrtime(true) - $start) / 1_000_000);
+
+        return $plan;
     }
 
     /**
@@ -1071,24 +1117,15 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
     // -- Diagnosis
 
     /**
-     * How the class is handled and why (self-aware-normalizers:known-construction-normalizer:list-unplanned). Not used while (de)normalizing: the reason is taken from the
-     * PlanFactory again, as plans only cache the outcome.
+     * How the class is handled and why (for the profiler). Not used while (de)normalizing: the reason is taken from the PlanFactory again,
+     * as plans only cache the outcome.
      */
     public function diagnose(string $class): Diagnosis\ClassDiagnosis
     {
-        if (!$this->planFactory->isInScope($class)) {
-            return new Diagnosis\ClassDiagnosis(
-                $class,
-                Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::NOT_IN_SCOPE),
-                null,
-                [],
-            );
-        }
-
         $plan = $this->plan($class);
 
         /**
-         * @var class-string $class Checked by isInScope()
+         * @var class-string $class Any type, the PlanFactory diagnoses types that aren't a class as such
          */
         $planDiagnosis = $this->planFactory->diagnose(
             $class,
@@ -1108,7 +1145,14 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
         }
 
         $delegatedParameters = [];
+        $valueObjectParameters = [];
         foreach ($plan['parameters'] as [$name, $kind, $targetClass, , , , $extra]) {
+            if ($targetClass !== null
+                && ParameterKind::isValueObject($kind)
+            ) {
+                $valueObjectParameters[$name] = $targetClass;
+            }
+
             $typeSuffix = match ($kind) {
                 ParameterKind::OBJECT => '',
                 ParameterKind::OBJECT_LIST => self::typeSuffixOfObjectList($extra),
@@ -1126,6 +1170,7 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
             null,
             $planDiagnosis->normalizationLimitation,
             $delegatedParameters,
+            $valueObjectParameters,
         );
     }
 
@@ -1169,6 +1214,82 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
                 $this->recursiveClasses[$classInProgress] = $classInProgress;
             }
         }
+    }
+
+    // -- Debug
+
+    /**
+     * Why supports*() declined, for the recorder. Only called with a recorder, after the check failed. For the denormalization, a class
+     * without plan is reported as such, even if the data isn't an array either.
+     *
+     * @param array<string, mixed> $context
+     */
+    private function reasonOfNotSupported(
+        bool $isNormalization,
+        bool $isDataSupported,
+        string $class,
+        ?string $format,
+        array $context,
+    ): string {
+        if (!self::isFormatSupported($format)) {
+            return sprintf('the format "%s" is not supported', (string) $format);
+        }
+
+        $plan = $this->plan($class);
+        if ($plan === false
+            || (
+                $isNormalization
+                && !$plan['isNormalizable']
+            )
+        ) {
+            return Debug\Recorder::REASON_NO_PLAN;
+        }
+
+        return $isDataSupported
+            ? $this->reasonOfUnsupportedContext($context)
+            : 'the data is not an array';
+    }
+
+    /**
+     * The options of the context and the default context that aren't accepted (see isContextSupported()).
+     *
+     * @param array<string, mixed> $context
+     */
+    private function reasonOfUnsupportedContext(array $context): string
+    {
+        $reasons = [];
+        foreach (array_keys($context + $this->defaultContext) as $option) {
+            if (isset($this->acceptedContextOptions[$option])) {
+                continue;
+            }
+
+            if (!array_key_exists($option, self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE)) {
+                $reasons[] = sprintf('the context option "%s" is unknown', $option);
+                continue;
+            }
+
+            $acceptedValue = self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE[$option];
+            if (($context[$option] ?? $this->defaultContext[$option] ?? $acceptedValue) !== $acceptedValue) {
+                $reasons[] = sprintf('the context option "%s" is only supported with %s', $option, var_export($acceptedValue, true));
+            }
+        }
+
+        return implode(', ', $reasons);
+    }
+
+    /**
+     * The context options the known construction normalizer is used with: option => accepted value (null for any value).
+     *
+     * @return array<string, bool|null>
+     */
+    public function acceptedContextOptions(): array
+    {
+        $acceptedContextOptions = [];
+        foreach (array_keys($this->acceptedContextOptions) as $option) {
+            $acceptedContextOptions[(string) $option] = null;
+        }
+
+        return $acceptedContextOptions + self::CONTEXT_OPTIONS_WITH_ACCEPTED_VALUE;
     }
 
     /**

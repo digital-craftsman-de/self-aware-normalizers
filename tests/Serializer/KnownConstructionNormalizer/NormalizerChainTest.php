@@ -44,8 +44,6 @@ require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Chain/fixtur
 #[CoversClass(KnownConstructionNormalizerCompilerPass::class)]
 final class NormalizerChainTest extends TestCase
 {
-    private const string SCOPE_WITH_CHAIN_FIXTURES = '/\\\\(Fixture\\\\ReadModel|Chain)\\\\/';
-
     /**
      * @var list<TestKernel>
      */
@@ -503,9 +501,7 @@ final class NormalizerChainTest extends TestCase
         ?\Closure $configure = null,
         array $knownConstructionNormalizerConfig = [],
     ): TestKernel {
-        $kernel = new TestKernel($environment, true, $configure, $knownConstructionNormalizerConfig + [
-            'supported_class_name_pattern' => self::SCOPE_WITH_CHAIN_FIXTURES,
-        ]);
+        $kernel = new TestKernel($environment, true, $configure, $knownConstructionNormalizerConfig);
         $this->kernels[] = $kernel;
         $kernel->boot();
 

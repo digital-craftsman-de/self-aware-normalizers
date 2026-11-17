@@ -28,7 +28,6 @@ final class TestKernel extends Kernel
     public const string FALLBACK_NORMALIZER_ID = 'serializer.normalizer.property_normalizer';
     public const string TYPE_EXTRACTOR_ID = 'app.property_normalizer_type_extractor';
     public const string PLAN_CACHE_POOL_ID = 'cache.known_construction_normalizer_plans';
-    public const string SUPPORTED_CLASS_NAME_PATTERN = '/\\\\Fixture\\\\ReadModel\\\\/';
 
     /**
      * Unique per test run, so a container of an earlier run (with other code) is never reused.
@@ -96,10 +95,6 @@ final class TestKernel extends Kernel
             $container->loadFromExtension('self_aware_normalizers', [
                 'known_construction_normalizer' => $this->knownConstructionNormalizerConfig + [
                     'enabled' => true,
-                    'supported_class_name_pattern' => self::SUPPORTED_CLASS_NAME_PATTERN,
-                    'source_directories' => [
-                        __DIR__.'/Fixture',
-                    ],
                 ],
             ]);
 

@@ -22,6 +22,12 @@ enum PlanLimitationReason: string
      */
     case SELF_AWARE_VALUE_OBJECT = 'SELF_AWARE_VALUE_OBJECT';
     case INTERNAL_CLASS = 'INTERNAL_CLASS';
+    case EXCEPTION = 'EXCEPTION';
+    case ANONYMOUS_CLASS = 'ANONYMOUS_CLASS';
+    /**
+     * A type that isn't an existing class, enum or interface (e.g. "int" or "X[]").
+     */
+    case NOT_A_CLASS = 'NOT_A_CLASS';
 
     // -- Shape of the class
     case CONSTRUCTOR_IS_NOT_PUBLIC = 'CONSTRUCTOR_IS_NOT_PUBLIC';
@@ -45,7 +51,6 @@ enum PlanLimitationReason: string
     case UNSUPPORTED_TYPE = 'UNSUPPORTED_TYPE';
 
     // -- Decided by the KnownConstructionNormalizer
-    case NOT_IN_SCOPE = 'NOT_IN_SCOPE';
     case RECURSIVE_CLASS = 'RECURSIVE_CLASS';
 
     // -- Decided by the normalizers of the serializer
@@ -59,31 +64,65 @@ enum PlanLimitationReason: string
     case PROPERTY_IS_MUTABLE = 'PROPERTY_IS_MUTABLE';
 
     /**
-     * Whether the class could be put on the fast path by changing its shape. Interfaces, enums, abstract classes, self-aware value objects
-     * and internal classes never reach the PropertyNormalizer as such, so they aren't relevant.
+     * Whether classes with this reason never get a plan by design, as they aren't plain read models (or are handled by another
+     * normalizer). The profiler only lists the other ones as missing the fast path.
      */
-    public function isRelevant(): bool
+    public function isByDesign(): bool
     {
         return match ($this) {
-            self::NOT_IN_SCOPE,
             self::INTERFACE,
             self::ENUM,
             self::ABSTRACT_CLASS,
             self::SELF_AWARE_VALUE_OBJECT,
-            self::INTERNAL_CLASS => false,
-            default => true,
+            self::INTERNAL_CLASS,
+            self::EXCEPTION,
+            self::ANONYMOUS_CLASS,
+            self::NOT_A_CLASS,
+            self::CLAIMED_BY_OTHER_NORMALIZER => true,
+            default => false,
+        };
+    }
+
+    /**
+     * How to put a class with this reason on the fast path, null for the reasons by design.
+     */
+    public function fixHint(): ?string
+    {
+        return match ($this) {
+            self::CONSTRUCTOR_IS_NOT_PUBLIC => 'Make the constructor public.',
+            self::NO_CONSTRUCTOR,
+            self::PROPERTY_IS_NOT_PROMOTED,
+            self::PARAMETER_IS_NOT_PROMOTED,
+            self::PARAMETERS_DIFFER_FROM_PROPERTIES => 'Promote every property in the constructor, with parameters exactly like the properties.',
+            self::PROPERTY_IS_NOT_PUBLIC => 'Make the property public (readonly).',
+            self::PROPERTY_HAS_HOOKS => 'Remove the hooks of the property.',
+            self::PROPERTY_IS_INHERITED => 'Declare the property in the class itself instead of a parent class.',
+            self::PARAMETER_IS_VARIADIC => 'Use an array instead of a variadic parameter.',
+            self::PARAMETER_IS_PASSED_BY_REFERENCE => 'Pass the parameter by value.',
+            self::PARAMETER_HAS_NO_TYPE => 'Add a type to the parameter.',
+            self::PARAMETER_HAS_OBJECT_DEFAULT_VALUE => 'Use null as default value and create the object in the caller.',
+            self::TYPE_IS_NOT_RESOLVABLE,
+            self::UNSUPPORTED_TYPE => 'Use a type the plan can express: scalars, arrays, lists of them, value objects and other plannable classes.',
+            self::UNION_TYPE,
+            self::INTERSECTION_TYPE => 'Use a single (nullable) type.',
+            self::COLLECTION_IS_NOT_AN_ARRAY => 'Use an array (e.g. list<X>) instead of an iterable or a collection class.',
+            self::RECURSIVE_CLASS => 'Break the recursion, e.g. by referencing the nested items by id.',
+            self::PROPERTY_IS_MUTABLE => 'Make every property readonly (the class is only denormalized through its plan).',
+            default => null,
         };
     }
 
     public function description(): string
     {
         return match ($this) {
-            self::NOT_IN_SCOPE => 'not in the scope of the known construction normalizer',
             self::INTERFACE => 'interface',
             self::ENUM => 'enum',
             self::ABSTRACT_CLASS => 'abstract class',
             self::SELF_AWARE_VALUE_OBJECT => 'self-aware value object',
             self::INTERNAL_CLASS => 'internal class',
+            self::EXCEPTION => 'exception',
+            self::ANONYMOUS_CLASS => 'anonymous class',
+            self::NOT_A_CLASS => 'not a class',
             self::CONSTRUCTOR_IS_NOT_PUBLIC => 'constructor is not public',
             self::NO_CONSTRUCTOR => 'no constructor',
             self::PROPERTY_IS_NOT_PUBLIC => 'property is not public',

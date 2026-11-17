@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace DigitalCraftsman\SelfAwareNormalizers\DependencyInjection;
 
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\KnownConstructionNormalizer;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\ListUnplannedClassesCommand;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\NormalizerChain;
 use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\PlanFactory;
 use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence\SerializerComparison;
@@ -19,7 +18,6 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Cache\CacheItemPoolInterface;
-use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
@@ -84,7 +82,6 @@ final class KnownConstructionNormalizerCompilerPassTest extends TestCase
         // Without a pool, the plans are only kept per instance
         self::assertNull(new \ReflectionProperty(KnownConstructionNormalizer::class, 'planCache')->getValue($knownConstructionNormalizer));
         self::assertTrue($knownConstructionNormalizer->supportsDenormalization([], Leaf::class));
-        self::assertTrue(new Application($kernel)->has(ListUnplannedClassesCommand::NAME));
     }
 
     #[Test]
@@ -125,7 +122,6 @@ final class KnownConstructionNormalizerCompilerPassTest extends TestCase
         // -- Assert
         self::assertFalse($container->has(SelfAwareNormalizersExtension::KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID));
         self::assertFalse($container->has(SelfAwareNormalizersExtension::PLAN_FACTORY_SERVICE_ID));
-        self::assertFalse(new Application($kernel)->has(ListUnplannedClassesCommand::NAME));
     }
 
     /**
@@ -332,13 +328,6 @@ final class KnownConstructionNormalizerCompilerPassTest extends TestCase
      */
     public static function invalidConfigurations(): iterable
     {
-        yield 'without scope' => [
-            [
-                'supported_class_name_pattern' => null,
-            ],
-            'The known construction normalizer needs a scope: configure the supported class name pattern or supported parent types.',
-        ];
-
         yield 'accepted context key the plan does not implement' => [
             [
                 'accepted_context_keys' => ['app_option', 'groups'],
@@ -351,13 +340,6 @@ final class KnownConstructionNormalizerCompilerPassTest extends TestCase
                 'accepted_context_keys' => ['allow_extra_attributes'],
             ],
             'The accepted context keys must not contain options the known construction normalizer does not implement or only accepts with a specific value',
-        ];
-
-        yield 'invalid pattern' => [
-            [
-                'supported_class_name_pattern' => 'ReadModel',
-            ],
-            'The supported class name pattern must be a valid regular expression, "ReadModel" given.',
         ];
     }
 
@@ -376,25 +358,6 @@ final class KnownConstructionNormalizerCompilerPassTest extends TestCase
 
         // -- Act
         $this->bootedKernel(sprintf('invalid_configuration_%s', md5($expectedMessagePart)), null, $knownConstructionNormalizerConfig);
-    }
-
-    #[Test]
-    public function scope_can_be_configured_through_parent_types_only(): void
-    {
-        // -- Arrange
-        $kernel = $this->bootedKernel('parent_types', null, [
-            'supported_class_name_pattern' => null,
-            'supported_parent_types' => [
-                \Countable::class,
-            ],
-        ]);
-
-        // -- Act
-        $comparison = SerializerComparison::fromSerializer($kernel->getContainer()->get('test.service_container')->get('serializer'));
-
-        // -- Assert
-        self::assertFalse($comparison->knownConstructionNormalizer->supportsDenormalization([], Leaf::class));
-        self::assertTrue($comparison->planFactory->isInScope(\ArrayObject::class));
     }
 
     #[Test]
@@ -576,8 +539,6 @@ final class KnownConstructionNormalizerCompilerPassTest extends TestCase
         $container->setParameter('app.disabled', false);
         $container->setDefinition(SelfAwareNormalizersExtension::PLAN_FACTORY_SERVICE_ID, new Definition(PlanFactory::class, [
             null,
-            null,
-            [],
             new Definition(NormalizerChain::class, [null, []]),
         ]));
         $container->setDefinition(SelfAwareNormalizersExtension::KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID, new Definition(KnownConstructionNormalizer::class, [

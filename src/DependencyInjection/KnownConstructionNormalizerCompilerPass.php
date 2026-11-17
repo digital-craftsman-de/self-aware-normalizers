@@ -58,8 +58,10 @@ final readonly class KnownConstructionNormalizerCompilerPass implements Compiler
      */
     private const int KNOWN_CONSTRUCTION_NORMALIZER_ARGUMENT_FALLBACK_NORMALIZER = 1;
     private const int KNOWN_CONSTRUCTION_NORMALIZER_ARGUMENT_DEFAULT_CONTEXT = 4;
+    private const int KNOWN_CONSTRUCTION_NORMALIZER_ARGUMENT_PLAN_CACHE = 2;
+    private const int DATA_COLLECTOR_ARGUMENT_CONFIGURATION = 2;
     private const int PLAN_FACTORY_ARGUMENT_PROPERTY_TYPE_EXTRACTOR = 0;
-    private const int PLAN_FACTORY_ARGUMENT_NORMALIZER_CHAIN = 3;
+    private const int PLAN_FACTORY_ARGUMENT_NORMALIZER_CHAIN = 1;
     private const int NORMALIZER_CHAIN_ARGUMENT_PRECEDING_NORMALIZERS = 0;
     private const int NORMALIZER_CHAIN_ARGUMENT_NEUTRAL_NORMALIZERS = 1;
 
@@ -136,6 +138,7 @@ final readonly class KnownConstructionNormalizerCompilerPass implements Compiler
         }
 
         $this->configureNormalizerChain($container);
+        $this->configureDataCollector($container, $fallbackId, $fallbackPriority, $knownConstructionNormalizerPriority);
 
         $knownConstructionNormalizerArguments = $knownConstructionNormalizerDefinition->getArguments();
         $knownConstructionNormalizerDefaultContext = $knownConstructionNormalizerArguments[self::KNOWN_CONSTRUCTION_NORMALIZER_ARGUMENT_DEFAULT_CONTEXT] ?? [];
@@ -143,6 +146,63 @@ final readonly class KnownConstructionNormalizerCompilerPass implements Compiler
         if ($container->getParameterBag()->resolveValue($knownConstructionNormalizerDefaultContext) != $container->getParameterBag()->resolveValue($fallbackDefaultContext)) {
             throw self::invalidFallback($fallbackId, 'It must have the same default context as the known construction normalizer, which gets the default context of the serializer. Don\'t set $defaultContext on the fallback.');
         }
+    }
+
+    /**
+     * Gives the data collector of the profiler (only registered in debug mode with the profiler) the configuration it shows: the fallback,
+     * the cache pool and the normalizers of the default serializer in their order.
+     */
+    private function configureDataCollector(
+        ContainerBuilder $container,
+        string $fallbackId,
+        int $fallbackPriority,
+        int $knownConstructionNormalizerPriority,
+    ): void {
+        if (!$container->hasDefinition(KnownConstructionNormalizerProfilerPass::DATA_COLLECTOR_SERVICE_ID)) {
+            return;
+        }
+
+        /** @var Definition $normalizerChainDefinition Set by the extension */
+        $normalizerChainDefinition = $container->getDefinition(SelfAwareNormalizersExtension::PLAN_FACTORY_SERVICE_ID)
+            ->getArgument(self::PLAN_FACTORY_ARGUMENT_NORMALIZER_CHAIN);
+        /** @var list<string> $neutralNormalizerIds Set by the extension */
+        $neutralNormalizerIds = $normalizerChainDefinition->getArgument(self::NORMALIZER_CHAIN_ARGUMENT_NEUTRAL_NORMALIZERS);
+
+        $normalizers = [];
+        $position = 'before';
+        foreach ($this->findAndSortTaggedServices(self::DEFAULT_SERIALIZER_NORMALIZER_TAG, $container) as $reference) {
+            $id = (string) $reference;
+            if ($id === SelfAwareNormalizersExtension::KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID) {
+                $position = 'after';
+            }
+
+            /** @var array{priority?: int} $attributes */
+            $attributes = $container->getDefinition($id)->getTag(self::DEFAULT_SERIALIZER_NORMALIZER_TAG)[0] ?? [];
+            $normalizers[] = [
+                'id' => $id,
+                'priority' => $attributes['priority'] ?? 0,
+                'position' => $id === SelfAwareNormalizersExtension::KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID
+                    ? 'self'
+                    : $position,
+                'isNeutral' => in_array($id, $neutralNormalizerIds, true),
+            ];
+        }
+
+        $planCachePool = $container->getDefinition(SelfAwareNormalizersExtension::KNOWN_CONSTRUCTION_NORMALIZER_SERVICE_ID)
+            ->getArgument(self::KNOWN_CONSTRUCTION_NORMALIZER_ARGUMENT_PLAN_CACHE);
+
+        $container->getDefinition(KnownConstructionNormalizerProfilerPass::DATA_COLLECTOR_SERVICE_ID)
+            ->replaceArgument(self::DATA_COLLECTOR_ARGUMENT_CONFIGURATION, [
+                'fallbackNormalizer' => $fallbackId,
+                'fallbackPriority' => $fallbackPriority,
+                'priority' => $knownConstructionNormalizerPriority,
+                'planCachePool' => $planCachePool instanceof Reference
+                    ? (string) $planCachePool
+                    : null,
+                'isPlanCachePoolDefined' => $planCachePool instanceof Reference
+                    && $container->has((string) $planCachePool),
+                'normalizers' => $normalizers,
+            ]);
     }
 
     /**

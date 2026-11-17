@@ -15,12 +15,13 @@
     "phpunit/phpunit": "^13.4",
     "infection/infection": "^0.35",
     "symfony/property-access": "^7.4|^8.0",
-    "symfony/property-info": "^7.4|^8.0"
+    "symfony/property-info": "^7.4|^8.0",
+    "twig/twig": "^3.21"
   },
   "suggest": {
-    "symfony/property-info": "Required for the known construction normalizer",
-    "symfony/type-info": "Required for the known construction normalizer",
-    "symfony/console": "Required for the command that lists the classes the known construction normalizer can not plan",
+    "symfony/property-info": "Required for the KnownConstructionNormalizer",
+    "symfony/type-info": "Required for the KnownConstructionNormalizer",
+    "symfony/web-profiler-bundle": "Shows the profiler panel of the KnownConstructionNormalizer in debug mode",
     "phpunit/phpunit": "Required for the test cases of DigitalCraftsman\\SelfAwareNormalizers\\Testing (^12.0|^13.0)"
   },
   "autoload": {

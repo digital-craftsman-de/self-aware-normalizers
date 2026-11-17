@@ -1,0 +1,243 @@
+{% extends '@WebProfiler/Profiler/layout.html.twig' %}
+
+{% block toolbar %}
+    {% if collector.fastCount > 0 or collector.fallbackCount > 0 %}
+        {% set icon %}
+            <span class="sf-toolbar-label">KCN</span>
+            <span class="sf-toolbar-value">{{ collector.fastCount }}</span>
+            <span class="sf-toolbar-label">fast /</span>
+            <span class="sf-toolbar-value">{{ collector.fallbackCount }}</span>
+            <span class="sf-toolbar-label">fallback</span>
+        {% endset %}
+
+        {% set text %}
+            <div class="sf-toolbar-info-piece">
+                <b>Fast path (plan)</b>
+                <span class="sf-toolbar-status">{{ collector.fastCount }}</span>
+            </div>
+            <div class="sf-toolbar-info-piece">
+                <b>Missed the fast path</b>
+                <span class="sf-toolbar-status{{ collector.fallbackCount > 0 ? ' sf-toolbar-status-yellow' }}">{{ collector.fallbackCount }}</span>
+            </div>
+        {% endset %}
+
+        {{ include('@WebProfiler/Profiler/toolbar_item.html.twig', { link: profiler_url, status: collector.fallbackCount > 0 ? 'yellow' : '' }) }}
+    {% endif %}
+{% endblock %}
+
+{% block menu %}
+    <span class="label{{ collector.fallbackCount > 0 ? ' label-status-warning' }}{{ collector.fastCount == 0 and collector.fallbackCount == 0 ? ' disabled' }}">
+        <span class="icon">{{ source('@WebProfiler/Icon/serializer.svg', ignore_missing = true) }}</span>
+        <strong>Self-Aware Normalizers</strong>
+        {% if collector.fallbackCount > 0 %}
+            <span class="count">{{ collector.fallbackCount }}</span>
+        {% endif %}
+    </span>
+{% endblock %}
+
+{% block panel %}
+    <h2>KnownConstructionNormalizer</h2>
+    <p>
+        Objects (de)normalized through a plan take the fast path. The timings of the normalizers are in the
+        <a href="{{ path('_profiler', { token: token, panel: 'serializer' }) }}">Serializer panel</a>.
+    </p>
+
+    <h3>Request summary</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Direction</th>
+                <th>Through a plan</th>
+                <th>Plan tried, fell back</th>
+                <th>Not handled</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for direction, counts in collector.summary %}
+                <tr>
+                    <td>{{ direction }}</td>
+                    <td>{{ counts.plan }}</td>
+                    <td>{{ counts.fallback }}</td>
+                    <td>{{ counts.notHandled }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p>Value object classes handled inline by the plans of this request: {{ collector.valueObjectClasses|length }}</p>
+    {% if collector.valueObjectClasses is not empty %}
+        <ul>
+            {% for class in collector.valueObjectClasses %}
+                <li>{{ class }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    <h3>Classes that missed the fast path</h3>
+    {% if collector.missed is empty %}
+        <div class="empty"><p>Every class that could take the fast path took it.</p></div>
+    {% else %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Class</th>
+                    <th>Direction</th>
+                    <th>Calls</th>
+                    <th>Why</th>
+                    <th>Reason</th>
+                    <th>Fix</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in collector.missed %}
+                    <tr>
+                        <td>{{ row.class }}</td>
+                        <td>{{ row.direction }}</td>
+                        <td>{{ row.count }}</td>
+                        <td>{{ row.kind }}</td>
+                        <td>{{ row.reason }}</td>
+                        <td>{{ row.hint ?? '' }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+    {% if collector.byDesign is not empty %}
+        <h4>Not handled by design</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>Class</th>
+                    <th>Direction</th>
+                    <th>Calls</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in collector.byDesign %}
+                    <tr>
+                        <td>{{ row.class }}</td>
+                        <td>{{ row.direction }}</td>
+                        <td>{{ row.count }}</td>
+                        <td>{{ row.reason }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+    <h3>Values sent through the serializer from inside a plan</h3>
+    {% if collector.delegated is empty %}
+        <div class="empty"><p>The plans of this request handle all their values themselves.</p></div>
+    {% else %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Class</th>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in collector.delegated %}
+                    <tr>
+                        <td>{{ row.class }}</td>
+                        <td>${{ row.parameter }}</td>
+                        <td>{{ row.type }}</td>
+                        <td>{{ row.reason }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+    <h3>Plan cache</h3>
+    {% set configuration = collector.configuration %}
+    <p>
+        Pool:
+        {% if configuration.planCachePool ?? null %}
+            {{ configuration.planCachePool }}{{ (configuration.isPlanCachePoolDefined ?? false) ? '' : ' (not defined, plans are only kept per instance)' }}
+        {% else %}
+            none (plans are only kept per instance)
+        {% endif %}
+    </p>
+    <table>
+        <thead>
+            <tr>
+                <th>Class</th>
+                <th>Plan</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for class, milliseconds in collector.plans.built %}
+                <tr>
+                    <td>{{ class }}</td>
+                    <td>built in {{ '%.2f'|format(milliseconds) }} ms</td>
+                </tr>
+            {% endfor %}
+            {% for class in collector.plans.loadedFromPool %}
+                <tr>
+                    <td>{{ class }}</td>
+                    <td>loaded from the pool</td>
+                </tr>
+            {% endfor %}
+            {% for class in collector.plans.fromMemory %}
+                <tr>
+                    <td>{{ class }}</td>
+                    <td>kept in memory</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h3>Configuration</h3>
+    <p>
+        Priority: {{ configuration.priority ?? '' }}.
+        Fallback: {{ configuration.fallbackNormalizer ?? '' }} (priority {{ configuration.fallbackPriority ?? '' }}).
+    </p>
+    <h4>Normalizers of the serializer</h4>
+    <table>
+        <thead>
+            <tr>
+                <th>Service</th>
+                <th>Priority</th>
+                <th>Asked</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for normalizer in configuration.normalizers ?? [] %}
+                <tr>
+                    <td>{{ normalizer.id }}</td>
+                    <td>{{ normalizer.priority }}</td>
+                    <td>
+                        {% if normalizer.position == 'self' %}
+                            KnownConstructionNormalizer
+                        {% elseif normalizer.position == 'before' %}
+                            before the KnownConstructionNormalizer{{ normalizer.isNeutral ? ' (neutral)' }}
+                        {% else %}
+                            after the KnownConstructionNormalizer
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <h4>Accepted context options</h4>
+    <table>
+        <thead>
+            <tr>
+                <th>Option</th>
+                <th>Accepted value</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for option, acceptedValue in collector.acceptedContextOptions %}
+                <tr>
+                    <td>{{ option }}</td>
+                    <td>{{ acceptedValue }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
