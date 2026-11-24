@@ -10,6 +10,11 @@ use Doctrine\DBAL\Types\Type;
 
 final class StringNormalizableThroughLookupType extends Type
 {
+    /**
+     * @var class-string<StringNormalizable>|null
+     */
+    private ?string $className = null;
+
     #[\Override]
     public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
     {
@@ -72,9 +77,21 @@ final class StringNormalizableThroughLookupType extends Type
     }
 
     /**
+     * The class name is resolved once per type instance. Doctrine creates one instance per type name and reuses it, so the hot path of
+     * the conversion doesn't need a lookup in the type registry, which is expensive and deprecated since doctrine/dbal 4.6 (every call
+     * triggers a deprecation).
+     *
      * @return class-string<StringNormalizable>
      */
     private function getClassNameThroughLookup(): string
+    {
+        return $this->className ??= $this->lookupClassName();
+    }
+
+    /**
+     * @return class-string<StringNormalizable>
+     */
+    private function lookupClassName(): string
     {
         /**
          * @var class-string<StringNormalizable> $className

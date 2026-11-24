@@ -6,10 +6,12 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Doctrine;
 
 use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\CustomerName;
 use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\Description;
+use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\ProjectId;
 use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\ProjectName;
 use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\SearchTerm;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Types\Type;
+use Doctrine\Deprecations\Deprecation;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -132,5 +134,43 @@ final class StringNormalizableThroughLookupTypeTest extends TestCase
 
         // -- Act
         $doctrineType->convertToPHPValue($value, $platform);
+    }
+
+    /**
+     * Doctrine creates one instance per type name and reuses it. The class name is therefore only looked up once per instance and not
+     * for every converted value, as the lookup is expensive (it's deprecated since doctrine/dbal 4.6 and triggers a deprecation).
+     */
+    #[Test]
+    public function class_name_is_only_looked_up_once_per_type_instance(): void
+    {
+        // -- Arrange
+        Deprecation::enableTrackingDeprecations();
+
+        $platform = new PostgreSQLPlatform();
+        $doctrineType = new StringNormalizableThroughLookupType();
+
+        Type::addType(ProjectId::class, $doctrineType);
+
+        $value = ProjectId::generateRandom();
+        $databaseValue = $doctrineType->convertToDatabaseValue($value, $platform);
+
+        // -- Act
+        $deprecationsBeforeFirstConversion = Deprecation::getUniqueTriggeredDeprecationsCount();
+
+        $doctrineType->convertToPHPValue($databaseValue, $platform);
+
+        $deprecationsBeforeFurtherConversions = Deprecation::getUniqueTriggeredDeprecationsCount();
+
+        $doctrineType->getSQLDeclaration([], $platform);
+        $convertedValue = $doctrineType->convertToPHPValue($databaseValue, $platform);
+        $convertedDatabaseValue = $doctrineType->convertToDatabaseValue($value, $platform);
+
+        $deprecationsAfterFurtherConversions = Deprecation::getUniqueTriggeredDeprecationsCount();
+
+        // -- Assert
+        self::assertSame(1, $deprecationsBeforeFurtherConversions - $deprecationsBeforeFirstConversion);
+        self::assertSame(0, $deprecationsAfterFurtherConversions - $deprecationsBeforeFurtherConversions);
+        self::assertEquals($value, $convertedValue);
+        self::assertSame($databaseValue, $convertedDatabaseValue);
     }
 }
