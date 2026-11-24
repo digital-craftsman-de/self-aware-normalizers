@@ -1,5 +1,9 @@
 # Upgrade guide
 
+## From 1.5.0 to 1.5.1
+
+Nothing to do.
+
 ## From 1.4.* to 1.5.0
 
 Nothing to do. The new `KnownConstructionNormalizer` is disabled by default, see [README - KnownConstructionNormalizer](./README.md#knownconstructionnormalizer) to enable it.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.1
+
+- The doctrine types of the automatic registration (`*NormalizableThroughLookupType`) look up the class name only once per type instance instead of for every value converted to PHP. The lookup (`Type::lookupName()`) is deprecated since `doctrine/dbal` 4.6 and triggers a deprecation on every call, which is expensive when deprecations are triggered (e.g. `DOCTRINE_DEPRECATIONS=trigger`). With `doctrine/dbal` 4.6, the deprecation is still triggered once for every type instance that converts a value or builds an SQL declaration.
+
 ## 1.5.0
 
 - Added the optional `KnownConstructionNormalizer` (`self_aware_normalizers.known_construction_normalizer`, disabled by default): a fast path in front of the `PropertyNormalizer` for plain constructor-promoted classes and self-aware value objects, with exactly the same results. It precomputes a plan per class and is about 8× faster for the normalization and 12× faster for the denormalization of large object graphs (see the README for the setup of the measurement).
