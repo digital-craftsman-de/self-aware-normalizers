@@ -845,6 +845,8 @@ namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fix
     {
         /**
          * @param iterable<string> $values
+         *
+         * @psalm-suppress MismatchingDocblockParamType On purpose
          */
         public function __construct(
             public array $values,

@@ -272,7 +272,8 @@ final class PlanFactoryTest extends TestCase
         // -- Assert
         self::assertSame(
             [
-                [null, ParameterKind::ARRAY],
+                // The PHPDoc type iterable isn't overruled, so the PropertyNormalizer denormalizes an iterable collection (resolved as such since symfony/property-info 8.1.12)
+                ['collection is not an array: $values (iterable<int|string, string>)', null],
                 ['collection is not an array: $values (ArrayObject<int, string>)', null],
                 // The PHPDoc type is a union, whose values the PropertyNormalizer tries member by member: falls back when set
                 [null, ParameterKind::UNION],
