@@ -10,6 +10,7 @@ use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis\UntypedParameter;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis\VariadicParameter;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence\ThrowingPropertyTypeExtractor;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\FixedPropertyTypeExtractor;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\AdditionalParameter;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Base;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Boxed;
@@ -37,6 +38,8 @@ use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 use Symfony\Component\Serializer\Normalizer\BackedEnumNormalizer;
+use Symfony\Component\TypeInfo\Type;
+use Symfony\Component\TypeInfo\TypeIdentifier;
 
 require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Fixture/ReadModel/fixtures.php';
 require_once dirname(__DIR__, 2).'/Test/KnownConstructionNormalizer/Union/fixtures.php';
@@ -280,6 +283,24 @@ final class PlanFactoryTest extends TestCase
             ],
             $diagnoses,
         );
+    }
+
+    /**
+     * Like AbstractObjectNormalizer::denormalizeParameter(): a plain iterable (without being a collection) isn't overruled by the native
+     * type array either. The extractor of the PropertyNormalizer always resolves iterables as collections, so it's set directly.
+     */
+    #[Test]
+    public function native_array_type_does_not_overrule_a_plain_iterable_type(): void
+    {
+        // -- Arrange
+        $planFactory = new PlanFactory(new FixedPropertyTypeExtractor(Type::builtin(TypeIdentifier::ITERABLE)));
+
+        // -- Act
+        $diagnosis = $planFactory->diagnose(ArrayWithIterableDoc::class, static fn (string $class): bool => false);
+
+        // -- Assert
+        self::assertNull($diagnosis->plan);
+        self::assertSame('unsupported type: $values (iterable)', $diagnosis->limitation?->describe());
     }
 
     #[Test]
