@@ -9,7 +9,9 @@ Value objects and DTOs that know how to normalize and denormalize themselves. Im
 ![Packagist License](https://img.shields.io/packagist/l/buron-digital/self-aware-normalizers)
 
 > [!NOTE]
-> Up to version 1.5.1, the package was published as [`digital-craftsman/self-aware-normalizers`](https://packagist.org/packages/digital-craftsman/self-aware-normalizers) with the namespace `DigitalCraftsman\SelfAwareNormalizers`. See the [upgrade guide](./UPGRADE.md#renamed-package-and-namespace) for how to switch. Downloads under the old name: [![Packagist Downloads](https://img.shields.io/packagist/dt/digital-craftsman/self-aware-normalizers)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
+> Up to version 1.5.1, the package was published as [`digital-craftsman/self-aware-normalizers`](https://packagist.org/packages/digital-craftsman/self-aware-normalizers) with the namespace `DigitalCraftsman\SelfAwareNormalizers`. See the [upgrade guide](./UPGRADE.md#renamed-package-and-namespace) for how to switch.
+>
+> Downloads under the old name: [![Packagist Downloads](https://img.shields.io/packagist/dt/digital-craftsman/self-aware-normalizers)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
 
 ## Why?
 
