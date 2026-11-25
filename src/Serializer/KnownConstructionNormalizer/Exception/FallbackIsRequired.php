@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Exception;
+namespace BuronDigital\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Exception;
 
 /**
  * Internal signal of the known construction normalizer: the data doesn't match what the plan accepts, so the object is denormalized again by the

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Diagnosis;
+namespace BuronDigital\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Diagnosis;
 
 /**
  * How the KnownConstructionNormalizer handles a class: whether it's planned, why not, whether its objects are also normalized through the plan, and

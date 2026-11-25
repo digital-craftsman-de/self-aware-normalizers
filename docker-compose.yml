@@ -1,7 +1,7 @@
 services:
 
   php-8.6:
-    image: ghcr.io/digital-craftsman-de/self-aware-normalizers-php-8.6
+    image: ghcr.io/buron-digital/self-aware-normalizers-php-8.6
     env_file:
       - .env
     volumes:
@@ -10,7 +10,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   php-8.5:
-    image: ghcr.io/digital-craftsman-de/self-aware-normalizers-php-8.5
+    image: ghcr.io/buron-digital/self-aware-normalizers-php-8.5
     env_file:
       - .env
     volumes:

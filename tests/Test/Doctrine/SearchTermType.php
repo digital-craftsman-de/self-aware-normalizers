@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\Doctrine;
+namespace BuronDigital\SelfAwareNormalizers\Test\Doctrine;
 
-use DigitalCraftsman\SelfAwareNormalizers\Doctrine\StringNormalizableType;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\SearchTerm;
+use BuronDigital\SelfAwareNormalizers\Doctrine\StringNormalizableType;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\SearchTerm;
 
 final class SearchTermType extends StringNormalizableType
 {

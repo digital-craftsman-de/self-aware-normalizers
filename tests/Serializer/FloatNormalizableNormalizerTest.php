@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Serializer;
+namespace BuronDigital\SelfAwareNormalizers\Serializer;
 
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\ProjectId;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\Range;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\ProjectId;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\Range;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;

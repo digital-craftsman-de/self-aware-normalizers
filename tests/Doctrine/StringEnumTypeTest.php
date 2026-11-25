@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Doctrine;
+namespace BuronDigital\SelfAwareNormalizers\Doctrine;
 
-use DigitalCraftsman\SelfAwareNormalizers\Test\Doctrine\UserRoleType;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\UserRole;
+use BuronDigital\SelfAwareNormalizers\Test\Doctrine\UserRoleType;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\UserRole;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;

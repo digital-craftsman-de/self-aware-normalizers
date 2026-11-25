@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\Doctrine;
+namespace BuronDigital\SelfAwareNormalizers\Test\Doctrine;
 
-use DigitalCraftsman\SelfAwareNormalizers\Doctrine\IntNormalizableType;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\Limit;
+use BuronDigital\SelfAwareNormalizers\Doctrine\IntNormalizableType;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\Limit;
 
 final class LimitType extends IntNormalizableType
 {

@@ -1,5 +1,5 @@
 # Build with
-# docker buildx build --platform linux/arm64,linux/amd64 -t ghcr.io/digital-craftsman-de/self-aware-normalizers-php-8.5:latest ./.docker/php-8.5 --push
+# docker buildx build --platform linux/arm64,linux/amd64 -t ghcr.io/buron-digital/self-aware-normalizers-php-8.5:latest ./.docker/php-8.5 --push
 
 FROM php:8.5-fpm-alpine
 

@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\DependencyInjection;
+namespace BuronDigital\SelfAwareNormalizers\DependencyInjection;
 
-use DigitalCraftsman\SelfAwareNormalizers\Test\ConstructFinder\AbstractReadonlyClass;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ConstructFinder\ClassWithCommentBeforeName;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ConstructFinder\FinalClass;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ConstructFinder\Nested\ClassInFirstNamespace;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ConstructFinder\Nested\Deeper\DeeplyNestedClass;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ConstructFinder\Nested\UnitEnum;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ConstructFinder\StringEnum;
+use BuronDigital\SelfAwareNormalizers\Test\ConstructFinder\AbstractReadonlyClass;
+use BuronDigital\SelfAwareNormalizers\Test\ConstructFinder\ClassWithCommentBeforeName;
+use BuronDigital\SelfAwareNormalizers\Test\ConstructFinder\FinalClass;
+use BuronDigital\SelfAwareNormalizers\Test\ConstructFinder\Nested\ClassInFirstNamespace;
+use BuronDigital\SelfAwareNormalizers\Test\ConstructFinder\Nested\Deeper\DeeplyNestedClass;
+use BuronDigital\SelfAwareNormalizers\Test\ConstructFinder\Nested\UnitEnum;
+use BuronDigital\SelfAwareNormalizers\Test\ConstructFinder\StringEnum;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;

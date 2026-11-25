@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence;
+namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence;
 
 /**
  * Samples of an app for the SampleFactory of EquivalenceTestCase: the SampleFactory builds every class through its

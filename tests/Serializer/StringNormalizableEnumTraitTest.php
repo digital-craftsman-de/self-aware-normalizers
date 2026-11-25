@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Serializer;
+namespace BuronDigital\SelfAwareNormalizers\Serializer;
 
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\UserRole;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\UserRole;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 

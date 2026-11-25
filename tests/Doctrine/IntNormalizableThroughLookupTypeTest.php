@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Doctrine;
+namespace BuronDigital\SelfAwareNormalizers\Doctrine;
 
-use DigitalCraftsman\SelfAwareNormalizers\Test\DTO\HighLimit;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\CalendarIntervalHeight;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\Limit;
+use BuronDigital\SelfAwareNormalizers\Test\DTO\HighLimit;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\CalendarIntervalHeight;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\Limit;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\Deprecations\Deprecation;

@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\DependencyInjection;
+namespace BuronDigital\SelfAwareNormalizers\DependencyInjection;
 
-use DigitalCraftsman\SelfAwareNormalizers\Doctrine\ArrayNormalizableThroughLookupType;
-use DigitalCraftsman\SelfAwareNormalizers\Doctrine\BoolNormalizableThroughLookupType;
-use DigitalCraftsman\SelfAwareNormalizers\Doctrine\FloatNormalizableThroughLookupType;
-use DigitalCraftsman\SelfAwareNormalizers\Doctrine\IntNormalizableThroughLookupType;
-use DigitalCraftsman\SelfAwareNormalizers\Doctrine\StringNormalizableThroughLookupType;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\ArrayNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\BoolNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\FloatNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizable;
+use BuronDigital\SelfAwareNormalizers\Doctrine\ArrayNormalizableThroughLookupType;
+use BuronDigital\SelfAwareNormalizers\Doctrine\BoolNormalizableThroughLookupType;
+use BuronDigital\SelfAwareNormalizers\Doctrine\FloatNormalizableThroughLookupType;
+use BuronDigital\SelfAwareNormalizers\Doctrine\IntNormalizableThroughLookupType;
+use BuronDigital\SelfAwareNormalizers\Doctrine\StringNormalizableThroughLookupType;
+use BuronDigital\SelfAwareNormalizers\Serializer\ArrayNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\BoolNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\FloatNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\IntNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\StringNormalizable;
 use Doctrine\DBAL\Types\Type;
 use Symfony\Component\Config\Resource\DirectoryResource;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;

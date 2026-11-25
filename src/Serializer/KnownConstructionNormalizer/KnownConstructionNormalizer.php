@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer;
+namespace BuronDigital\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer;
 
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\ArrayNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\BoolNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\FloatNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\ArrayNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\BoolNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\FloatNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\IntNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\StringNormalizable;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\Serializer\Exception\UnsupportedException;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
@@ -33,7 +33,7 @@ use Symfony\Component\TypeInfo\Type;
  * PropertyNormalizer.
  *
  * Per class, a plan is built once (PlanFactory): per constructor parameter the kind of value and the class to build. Denormalization
- * still constructs every object: value objects through their static denormalize() (digital-craftsman/self-aware-normalizers), the
+ * still constructs every object: value objects through their static denormalize() (buron-digital/self-aware-normalizers), the
  * planned class through its constructor, with the same validation as before. Normalization reads the public properties in declaration
  * order and calls normalize() on value objects. Values of other classes go through the serializer as before.
  *

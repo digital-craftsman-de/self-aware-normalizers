@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\Doctrine;
+namespace BuronDigital\SelfAwareNormalizers\Test\Doctrine;
 
-use DigitalCraftsman\SelfAwareNormalizers\Doctrine\StringEnumType;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\UserRole;
+use BuronDigital\SelfAwareNormalizers\Doctrine\StringEnumType;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\UserRole;
 
 final class UserRoleType extends StringEnumType
 {

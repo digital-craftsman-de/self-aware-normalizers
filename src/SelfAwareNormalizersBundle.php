@@ -1,10 +1,10 @@
 <?php
 
-namespace DigitalCraftsman\SelfAwareNormalizers;
+namespace BuronDigital\SelfAwareNormalizers;
 
-use DigitalCraftsman\SelfAwareNormalizers\DependencyInjection\DoctrineTypeRegisterCompilerPass;
-use DigitalCraftsman\SelfAwareNormalizers\DependencyInjection\KnownConstructionNormalizerCompilerPass;
-use DigitalCraftsman\SelfAwareNormalizers\DependencyInjection\KnownConstructionNormalizerProfilerPass;
+use BuronDigital\SelfAwareNormalizers\DependencyInjection\DoctrineTypeRegisterCompilerPass;
+use BuronDigital\SelfAwareNormalizers\DependencyInjection\KnownConstructionNormalizerCompilerPass;
+use BuronDigital\SelfAwareNormalizers\DependencyInjection\KnownConstructionNormalizerProfilerPass;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Bundle\Bundle;

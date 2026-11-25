@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Chain;
+namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Chain;
 
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\StringNormalizable;
 
 /**
  * Classes for the tests of the chain of normalizers in front of the KnownConstructionNormalizer (see NormalizerChain): ClaimingNormalizer

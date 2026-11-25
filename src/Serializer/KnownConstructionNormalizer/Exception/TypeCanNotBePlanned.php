@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Exception;
+namespace BuronDigital\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Exception;
 
 /**
  * A type the plan can't express, for cases the type extractor of the PropertyNormalizer doesn't produce (a typed promoted property

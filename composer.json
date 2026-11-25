@@ -1,5 +1,5 @@
 {
-  "name": "digital-craftsman/self-aware-normalizers",
+  "name": "buron-digital/self-aware-normalizers",
   "description": "Adds interfaces and normalizers that allow value objects to normalize and denormalize themselves.",
   "type": "symfony-bundle",
   "require": {
@@ -25,19 +25,19 @@
   },
   "autoload": {
     "psr-4": {
-      "DigitalCraftsman\\SelfAwareNormalizers\\": "src/"
+      "BuronDigital\\SelfAwareNormalizers\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "DigitalCraftsman\\SelfAwareNormalizers\\": "tests/"
+      "BuronDigital\\SelfAwareNormalizers\\": "tests/"
     }
   },
   "license": "MIT",
   "authors": [
     {
       "name": "Christian Kolb",
-      "email": "info@digital-craftsman.de"
+      "email": "info@buron.digital"
     }
   ],
   "config": {

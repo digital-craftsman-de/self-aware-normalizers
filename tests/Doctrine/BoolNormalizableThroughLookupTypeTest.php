@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Doctrine;
+namespace BuronDigital\SelfAwareNormalizers\Doctrine;
 
-use DigitalCraftsman\SelfAwareNormalizers\Test\DTO\AcceptedTermsOfServiceAsInt;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\AcceptedTermsOfService;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\SubscribedToNewsletter;
+use BuronDigital\SelfAwareNormalizers\Test\DTO\AcceptedTermsOfServiceAsInt;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\AcceptedTermsOfService;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\SubscribedToNewsletter;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\Deprecations\Deprecation;

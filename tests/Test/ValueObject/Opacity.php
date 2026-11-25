@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject;
+namespace BuronDigital\SelfAwareNormalizers\Test\ValueObject;
 
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\FloatNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\FloatNormalizable;
 
 final readonly class Opacity implements FloatNormalizable
 {

@@ -7,7 +7,7 @@ declare(strict_types=1);
  * catches them there. Outside of the Fixture directory, so the equivalence test doesn't sample them.
  */
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis;
+namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis;
 
 final readonly class VariadicParameter
 {

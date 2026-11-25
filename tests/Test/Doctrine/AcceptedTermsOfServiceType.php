@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\Doctrine;
+namespace BuronDigital\SelfAwareNormalizers\Test\Doctrine;
 
-use DigitalCraftsman\SelfAwareNormalizers\Doctrine\BoolNormalizableType;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\AcceptedTermsOfService;
+use BuronDigital\SelfAwareNormalizers\Doctrine\BoolNormalizableType;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\AcceptedTermsOfService;
 
 final class AcceptedTermsOfServiceType extends BoolNormalizableType
 {

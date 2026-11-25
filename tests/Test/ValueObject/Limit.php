@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject;
+namespace BuronDigital\SelfAwareNormalizers\Test\ValueObject;
 
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableIntDenormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableIntDenormalizableTrait;
+use BuronDigital\SelfAwareNormalizers\Serializer\IntNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\NullableIntDenormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\NullableIntDenormalizableTrait;
 
 final readonly class Limit implements IntNormalizable, NullableIntDenormalizable
 {

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Profiler;
+namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Profiler;
 
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
@@ -15,7 +15,7 @@ use Symfony\Component\HttpKernel\DataCollector\DataCollector;
 
 /**
  * A bundle listed after the SelfAwareNormalizersBundle that registers a profiler panel of the same priority in its extension (like
- * digital-craftsman/deserializing-connection).
+ * buron-digital/deserializing-connection).
  */
 final class LaterBundle extends Bundle
 {

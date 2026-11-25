@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\ConstructFinder;
+namespace BuronDigital\SelfAwareNormalizers\Test\ConstructFinder;
 
 enum StringEnum: string
 {

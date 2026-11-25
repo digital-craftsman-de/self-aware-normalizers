@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\DTO;
+namespace BuronDigital\SelfAwareNormalizers\Test\DTO;
 
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\ArrayNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\Range;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\SearchTerm;
+use BuronDigital\SelfAwareNormalizers\Serializer\ArrayNormalizable;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\Range;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\SearchTerm;
 
 /**
  * @psalm-type NormalizedSearchWithOptionalRange = array{

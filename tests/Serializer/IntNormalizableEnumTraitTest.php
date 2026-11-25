@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Serializer;
+namespace BuronDigital\SelfAwareNormalizers\Serializer;
 
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\CalendarIntervalHeight;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\CalendarIntervalHeight;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
