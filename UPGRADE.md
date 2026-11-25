@@ -30,7 +30,7 @@ The package moved from `digital-craftsman/self-aware-normalizers` to `buron-digi
 3. Update the packages and clear the cache:
 
    ```shell
-   composer update digital-craftsman/self-aware-normalizers buron-digital/self-aware-normalizers
+   composer update "buron-digital/*"
    bin/console cache:clear
    ```
 
