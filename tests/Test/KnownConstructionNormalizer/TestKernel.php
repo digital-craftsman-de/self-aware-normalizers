@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer;
+namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer;
 
-use DigitalCraftsman\SelfAwareNormalizers\SelfAwareNormalizersBundle;
+use BuronDigital\SelfAwareNormalizers\SelfAwareNormalizersBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Component\Config\Loader\LoaderInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;

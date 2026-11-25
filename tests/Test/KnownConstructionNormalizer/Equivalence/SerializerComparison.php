@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence;
+namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence;
 
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\KnownConstructionNormalizer;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\PlanFactory;
+use BuronDigital\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\KnownConstructionNormalizer;
+use BuronDigital\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\PlanFactory;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\Serializer\Debug\TraceableNormalizer;
 use Symfony\Component\Serializer\Debug\TraceableSerializer;

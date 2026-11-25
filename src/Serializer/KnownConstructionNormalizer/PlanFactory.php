@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer;
+namespace BuronDigital\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer;
 
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\ArrayNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\BoolNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\FloatNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\ArrayNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\BoolNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\FloatNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\IntNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\StringNormalizable;
 use Symfony\Component\PropertyInfo\PropertyTypeExtractorInterface;
 use Symfony\Component\TypeInfo\Exception\ExceptionInterface as TypeInfoException;
 use Symfony\Component\TypeInfo\Type;
@@ -31,7 +31,7 @@ use Symfony\Component\TypeInfo\TypeResolver\ReflectionTypeResolver;
  * - each parameter has a type the plan can handle (see classifyType()); the type is resolved exactly like
  *   AbstractObjectNormalizer::denormalizeParameter() does it (type extractor of the PropertyNormalizer, overruled by the native
  *   parameter type when they disagree),
- * - no value object of digital-craftsman/self-aware-normalizers, no enum and no abstract class (those never reach the normalizer;
+ * - no value object of buron-digital/self-aware-normalizers, no enum and no abstract class (those never reach the normalizer;
  *   the order in which diagnose() checks them only decides the reported reason).
  *
  * Everything else returns null, so the class stays with the PropertyNormalizer. diagnose() returns the reason instead (the first
@@ -685,7 +685,7 @@ final readonly class PlanFactory
     }
 
     /**
-     * The kind of a value object of digital-craftsman/self-aware-normalizers, null for any other class. A class can only implement one of
+     * The kind of a value object of buron-digital/self-aware-normalizers, null for any other class. A class can only implement one of
      * the interfaces, as their normalize() methods have different return types.
      */
     public static function valueObjectKind(string $class): ?int

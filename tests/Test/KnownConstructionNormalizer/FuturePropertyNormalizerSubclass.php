@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer;
+namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer;
 
 final class FuturePropertyNormalizerSubclass extends FuturePropertyNormalizer
 {

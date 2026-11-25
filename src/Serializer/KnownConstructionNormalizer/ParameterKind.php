@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer;
+namespace BuronDigital\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer;
 
 /**
  * How the known construction normalizer denormalizes a constructor parameter. Plain integers (not an enum), as they are compared in the hot loop of
@@ -42,7 +42,7 @@ final readonly class ParameterKind
     public const int SCALAR_LIST = 7;
 
     /**
-     * Value object of digital-craftsman/self-aware-normalizers, built through its static denormalize(). Target class: the value object.
+     * Value object of buron-digital/self-aware-normalizers, built through its static denormalize(). Target class: the value object.
      * Extra: null.
      */
     public const int VALUE_OBJECT_STRING = 8;

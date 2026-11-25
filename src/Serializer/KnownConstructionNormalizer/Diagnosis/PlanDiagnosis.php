@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Diagnosis;
+namespace BuronDigital\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Diagnosis;
 
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\PlanFactory;
+use BuronDigital\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\PlanFactory;
 
 /**
  * Result of the PlanFactory for a class: either the plan or the limitation that prevents it. A planned class whose objects are only

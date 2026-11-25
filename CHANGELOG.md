@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.0
+
+- **[Breaking change](./UPGRADE.md#renamed-package-and-namespace)**: Renamed the package from `digital-craftsman/self-aware-normalizers` to `buron-digital/self-aware-normalizers` and the namespace from `DigitalCraftsman\SelfAwareNormalizers` to `BuronDigital\SelfAwareNormalizers`. Apart from the names, nothing changed.
+
 ## 1.5.1
 
 - The doctrine types of the automatic registration (`*NormalizableThroughLookupType`) look up the class name only once per type instance instead of for every value converted to PHP. The lookup (`Type::lookupName()`) is deprecated since `doctrine/dbal` 4.6 and triggers a deprecation on every call, which is expensive when deprecations are triggered (e.g. `DOCTRINE_DEPRECATIONS=trigger`). With `doctrine/dbal` 4.6, the deprecation is still triggered once for every type instance that converts a value or builds an SQL declaration.

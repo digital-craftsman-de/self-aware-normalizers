@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject;
+namespace BuronDigital\SelfAwareNormalizers\Test\ValueObject;
 
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizableEnumTrait;
+use BuronDigital\SelfAwareNormalizers\Serializer\StringNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\StringNormalizableEnumTrait;
 
 enum UserRole: string implements StringNormalizable
 {

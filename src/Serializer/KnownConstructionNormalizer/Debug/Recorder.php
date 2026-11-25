@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Debug;
+namespace BuronDigital\SelfAwareNormalizers\Serializer\KnownConstructionNormalizer\Debug;
 
 use Symfony\Contracts\Service\ResetInterface;
 

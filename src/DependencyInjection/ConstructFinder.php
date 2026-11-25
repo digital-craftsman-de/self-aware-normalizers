@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\DependencyInjection;
+namespace BuronDigital\SelfAwareNormalizers\DependencyInjection;
 
 /**
  * Finds the fully qualified names of classes and enums declared in PHP files of a directory (recursively).

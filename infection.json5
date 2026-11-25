@@ -15,8 +15,8 @@
     "@default": true,
     "IncrementInteger": {
       "ignore": [
-        "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableType::convertToPHPValue",
-        "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableThroughLookupType::convertToPHPValue"
+        "BuronDigital\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableType::convertToPHPValue",
+        "BuronDigital\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableThroughLookupType::convertToPHPValue"
       ],
       "ignoreSourceCodeByRegex": [
         // Nanoseconds to milliseconds for the profiler: a divisor off by one changes the time by a millionth
@@ -25,8 +25,8 @@
     },
     "DecrementInteger": {
       "ignore": [
-        "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableType::convertToPHPValue",
-        "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableThroughLookupType::convertToPHPValue"
+        "BuronDigital\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableType::convertToPHPValue",
+        "BuronDigital\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableThroughLookupType::convertToPHPValue"
       ],
       "ignoreSourceCodeByRegex": [
         // See IncrementInteger
@@ -35,20 +35,20 @@
     },
     "MethodCallRemoval": {
       "ignore": [
-        "DigitalCraftsman\\SelfAwareNormalizers\\Doctrine\\Exception\\InvalidTypeName::__construct"
+        "BuronDigital\\SelfAwareNormalizers\\Doctrine\\Exception\\InvalidTypeName::__construct"
       ]
     },
     "Throw_": {
       "ignore": [
         // Without the throw, a value of the wrong type (the instance of FallbackIsRequired) is passed on to the constructor, which fails
         // with a TypeError, which falls back to the PropertyNormalizer as well
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::build",
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::buildNested",
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::buildNestedList",
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::build",
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::buildNested",
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::buildNestedList",
         // Only reached when no normalizer of the serializer supports the class, which the framework's ObjectNormalizer prevents
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::denormalizeThroughSerializer",
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::denormalizeThroughSerializer",
         // Guard: symfony/type-info only allows int and string keys
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\PlanFactory::keyCheck"
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\PlanFactory::keyCheck"
       ]
     },
     "Coalesce": {
@@ -64,7 +64,7 @@
       "ignore": [
         // Fast paths for null, scalars, arrays, value objects and planned objects: without them, the value goes through the serializer,
         // which returns the same (through the same normalizers)
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizeValue"
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizeValue"
       ],
       "ignoreSourceCodeByRegex": [
         // Memo hit: without it, the plan is built again, with the same result
@@ -74,48 +74,48 @@
     "LogicalOr": {
       "ignore": [
         // Fast path for null and scalars, see ReturnRemoval
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizeValue"
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizeValue"
       ]
     },
     "LogicalAnd": {
       "ignore": [
         // Copy of AbstractObjectNormalizer::hasScalarElements(), kept as it is: every type that reaches it has getTypeIdentifier(), so
         // the instanceof only guards the call
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\PlanFactory::hasScalarElements",
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\PlanFactory::hasScalarElements",
         // Fast path for null and scalars: normalizeValue() returns them as they are
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizeObject",
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizeObject",
         // The union member flag only changes how a failing denormalization fails, which falls back to the PropertyNormalizer anyway
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::contextOfObject"
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::contextOfObject"
       ]
     },
     "TrueValue": {
       "ignore": [
         // The serializer checks the union member flag with isset()
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::contextOfObject"
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::contextOfObject"
       ]
     },
     "MatchArmRemoval": {
       "ignore": [
         // Without the arms, value objects and planned objects are normalized through the serializer, with the same result
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizationKind"
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizationKind"
       ]
     },
     "LogicalAndAllSubExprNegation": {
       "ignore": [
         // Objects normalized directly through the plan or through the serializer (which selects the known construction normalizer) have the same result
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizationKind"
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizationKind"
       ]
     },
     "LogicalAndSingleSubExprNegation": {
       "ignore": [
         // See LogicalAndAllSubExprNegation
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizationKind"
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::normalizationKind"
       ]
     },
     "UnwrapFinally": {
       "ignore": [
         // PlanFactory::create() doesn't throw for an existing class (see its failure contract)
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::createPlan"
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::createPlan"
       ]
     },
     "FalseValue": {
@@ -127,21 +127,21 @@
       ],
       "ignore": [
         // Whether another class has a plan only decides the kind of a parameter, never a limitation, which is all diagnose() reads
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::diagnose",
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::diagnose",
         // A class of a recursion: its own plan is discarded as recursive either way, the classes referencing it get the same plan
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::hasPlanOutsideOfRecursion"
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\KnownConstructionNormalizer::hasPlanOutsideOfRecursion"
       ]
     },
     "Catch_": {
       "ignore": [
         // Guard: the type resolution only throws exceptions of type-info for the existing classes of a constructor
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\PlanFactory::createParameterPlan"
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\PlanFactory::createParameterPlan"
       ]
     },
     "FunctionCallRemoval": {
       "ignore": [
         // type-info orders the members of a union of key types, the sorting only guards against a change of that
-        "DigitalCraftsman\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\PlanFactory::keyCheck"
+        "BuronDigital\\SelfAwareNormalizers\\Serializer\\KnownConstructionNormalizer\\PlanFactory::keyCheck"
       ]
     }
   },

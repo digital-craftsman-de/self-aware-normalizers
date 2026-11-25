@@ -2,11 +2,14 @@
 
 Value objects and DTOs that know how to normalize and denormalize themselves. Implement one small interface and the class works with the Symfony serializer and as a Doctrine type – without writing a single custom normalizer or Doctrine type.
 
-[![Latest Stable Version](https://img.shields.io/badge/stable-1.5.1-blue)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
-[![PHP Version Require](https://img.shields.io/badge/php-8.5|8.6-5b5d95)](https://packagist.org/packages/digital-craftsman/self-aware-normalizers)
-[![codecov](https://codecov.io/gh/digital-craftsman-de/self-aware-normalizers/branch/main/graph/badge.svg?token=BL0JKZYLBG)](https://codecov.io/gh/digital-craftsman-de/self-aware-normalizers)
-![Packagist Downloads](https://img.shields.io/packagist/dt/digital-craftsman/self-aware-normalizers)
-![Packagist License](https://img.shields.io/packagist/l/digital-craftsman/self-aware-normalizers)
+[![Latest Stable Version](https://img.shields.io/badge/stable-2.0.0-blue)](https://packagist.org/packages/buron-digital/self-aware-normalizers)
+[![PHP Version Require](https://img.shields.io/badge/php-8.5|8.6-5b5d95)](https://packagist.org/packages/buron-digital/self-aware-normalizers)
+[![codecov](https://codecov.io/gh/buron-digital/self-aware-normalizers/branch/main/graph/badge.svg?token=BL0JKZYLBG)](https://codecov.io/gh/buron-digital/self-aware-normalizers)
+![Packagist Downloads](https://img.shields.io/packagist/dt/buron-digital/self-aware-normalizers)
+![Packagist License](https://img.shields.io/packagist/l/buron-digital/self-aware-normalizers)
+
+> [!NOTE]
+> Up to version 1.5.1, the package was published as [`digital-craftsman/self-aware-normalizers`](https://packagist.org/packages/digital-craftsman/self-aware-normalizers) with the namespace `DigitalCraftsman\SelfAwareNormalizers`. See the [upgrade guide](./UPGRADE.md#renamed-package-and-namespace) for how to switch.
 
 ## Why?
 
@@ -22,7 +25,7 @@ Value objects and DTOs that know how to normalize and denormalize themselves. Im
 Requires PHP 8.5 or 8.6, Symfony 7.4 or 8 and Doctrine DBAL 4.
 
 ```shell
-composer require digital-craftsman/self-aware-normalizers
+composer require buron-digital/self-aware-normalizers
 ```
 
 The normalizers are registered automatically. The configuration is only needed for the [Doctrine types](#doctrine-types) and the [`KnownConstructionNormalizer`](#knownconstructionnormalizer).
@@ -420,3 +423,9 @@ It's often seen that way. In practice, the data structure and its normalized for
 
 - [Changelog](./CHANGELOG.md)
 - [Upgrade guide](./UPGRADE.md)
+
+## Who's behind this
+
+<a href="https://www.buron.digital"><img src="https://raw.githubusercontent.com/buron-digital/self-aware-normalizers/main/.github/assets/buron-digital-banner.png" alt="Christian Kolb, Buron Digital – Building your digital products. Free initial consultation." width="100%"></a>
+
+<p align="center"><sub><a href="https://www.buron.digital">www.buron.digital</a> · <a href="mailto:info@buron.digital">info@buron.digital</a></sub></p>

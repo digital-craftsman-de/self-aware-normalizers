@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\Doctrine;
+namespace BuronDigital\SelfAwareNormalizers\Test\Doctrine;
 
-use DigitalCraftsman\SelfAwareNormalizers\Doctrine\FloatNormalizableType;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\Range;
+use BuronDigital\SelfAwareNormalizers\Doctrine\FloatNormalizableType;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\Range;
 
 final class RangeType extends FloatNormalizableType
 {

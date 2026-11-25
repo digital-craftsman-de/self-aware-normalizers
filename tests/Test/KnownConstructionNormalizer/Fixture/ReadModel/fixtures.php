@@ -8,12 +8,12 @@ declare(strict_types=1);
  * for them. One file, loaded by the tests, as the classes are only meaningful together.
  */
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject {
-    use DigitalCraftsman\SelfAwareNormalizers\Serializer\ArrayNormalizable;
-    use DigitalCraftsman\SelfAwareNormalizers\Serializer\BoolNormalizable;
-    use DigitalCraftsman\SelfAwareNormalizers\Serializer\FloatNormalizable;
-    use DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizable;
-    use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizable;
+namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject {
+    use BuronDigital\SelfAwareNormalizers\Serializer\ArrayNormalizable;
+    use BuronDigital\SelfAwareNormalizers\Serializer\BoolNormalizable;
+    use BuronDigital\SelfAwareNormalizers\Serializer\FloatNormalizable;
+    use BuronDigital\SelfAwareNormalizers\Serializer\IntNormalizable;
+    use BuronDigital\SelfAwareNormalizers\Serializer\StringNormalizable;
     use Symfony\Component\Serializer\Exception\ExtraAttributesException;
     use Symfony\Component\Serializer\Exception\InvalidArgumentException;
     use Symfony\Component\Serializer\Exception\MissingConstructorArgumentsException;
@@ -156,16 +156,16 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer
     }
 }
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel {
-    use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizable;
-    use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizableEnumTrait;
-    use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Other\Settings;
-    use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Count;
-    use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Flag;
-    use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\PlainStatus;
-    use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Point;
-    use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\StrictName;
-    use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Weight;
+namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel {
+    use BuronDigital\SelfAwareNormalizers\Serializer\StringNormalizable;
+    use BuronDigital\SelfAwareNormalizers\Serializer\StringNormalizableEnumTrait;
+    use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Other\Settings;
+    use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Count;
+    use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Flag;
+    use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\PlainStatus;
+    use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Point;
+    use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\StrictName;
+    use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Weight;
 
     // -- Supported
 
@@ -819,8 +819,8 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer
     }
 }
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Sample {
-    use DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ImageElement;
+namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Sample {
+    use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ImageElement;
 
     /**
      * Not in the scope of the KnownConstructionNormalizer, only built by the SampleFactory (SampleFactoryTest): the implementation of the interface is
@@ -890,7 +890,7 @@ namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer
     }
 }
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Other {
+namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Other {
     /**
      * Out of the scope of the KnownConstructionNormalizer, (de)normalized by the PropertyNormalizer.
      */

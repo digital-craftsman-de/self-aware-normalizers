@@ -1,16 +1,16 @@
 services:
 
-  DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizableNormalizer:
+  BuronDigital\SelfAwareNormalizers\Serializer\StringNormalizableNormalizer:
     tags: [ { name: 'serializer.normalizer' } ]
 
-  DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizableNormalizer:
+  BuronDigital\SelfAwareNormalizers\Serializer\IntNormalizableNormalizer:
     tags: [ { name: 'serializer.normalizer' } ]
 
-  DigitalCraftsman\SelfAwareNormalizers\Serializer\FloatNormalizableNormalizer:
+  BuronDigital\SelfAwareNormalizers\Serializer\FloatNormalizableNormalizer:
     tags: [ { name: 'serializer.normalizer' } ]
 
-  DigitalCraftsman\SelfAwareNormalizers\Serializer\BoolNormalizableNormalizer:
+  BuronDigital\SelfAwareNormalizers\Serializer\BoolNormalizableNormalizer:
     tags: [ { name: 'serializer.normalizer' } ]
 
-  DigitalCraftsman\SelfAwareNormalizers\Serializer\ArrayNormalizableNormalizer:
+  BuronDigital\SelfAwareNormalizers\Serializer\ArrayNormalizableNormalizer:
     tags: [ { name: 'serializer.normalizer' } ]

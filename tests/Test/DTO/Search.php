@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\DTO;
+namespace BuronDigital\SelfAwareNormalizers\Test\DTO;
 
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\ArrayNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableArrayDenormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\NullableArrayDenormalizableTrait;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\Limit;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\SearchTerm;
+use BuronDigital\SelfAwareNormalizers\Serializer\ArrayNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\NullableArrayDenormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\NullableArrayDenormalizableTrait;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\Limit;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\SearchTerm;
 
 /**
  * @psalm-type NormalizedSearch = array{

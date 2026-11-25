@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Serializer;
+namespace BuronDigital\SelfAwareNormalizers\Serializer;
 
 interface NullableStringDenormalizable
 {

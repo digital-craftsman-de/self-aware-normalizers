@@ -1,6 +1,6 @@
 <?php
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\ConstructFinder;
+namespace BuronDigital\SelfAwareNormalizers\Test\ConstructFinder;
 
 final class ClassInNonPhpFile
 {

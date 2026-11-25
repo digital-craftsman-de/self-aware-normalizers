@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Doctrine;
+namespace BuronDigital\SelfAwareNormalizers\Doctrine;
 
-use DigitalCraftsman\SelfAwareNormalizers\Test\Doctrine\LimitType;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\Limit;
+use BuronDigital\SelfAwareNormalizers\Test\Doctrine\LimitType;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\Limit;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Serializer;
+namespace BuronDigital\SelfAwareNormalizers\Serializer;
 
-use DigitalCraftsman\SelfAwareNormalizers\Test\DTO\GetUsersQuery;
-use DigitalCraftsman\SelfAwareNormalizers\Test\DTO\Search;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\Limit;
+use BuronDigital\SelfAwareNormalizers\Test\DTO\GetUsersQuery;
+use BuronDigital\SelfAwareNormalizers\Test\DTO\Search;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\Limit;
 use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Profiler;
+namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Profiler;
 
 use Symfony\Component\Serializer\Attribute\Context;
 use Symfony\Component\Serializer\Attribute\Groups;

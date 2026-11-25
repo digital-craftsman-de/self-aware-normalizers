@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Doctrine;
+namespace BuronDigital\SelfAwareNormalizers\Doctrine;
 
-use DigitalCraftsman\SelfAwareNormalizers\Test\DTO\LowRange;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\Opacity;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\Range;
+use BuronDigital\SelfAwareNormalizers\Test\DTO\LowRange;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\Opacity;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\Range;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\Deprecations\Deprecation;

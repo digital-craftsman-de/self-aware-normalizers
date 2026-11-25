@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\DTO;
+namespace BuronDigital\SelfAwareNormalizers\Test\DTO;
 
-use DigitalCraftsman\SelfAwareNormalizers\Doctrine\NormalizableTypeWithSQLDeclaration;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizable;
+use BuronDigital\SelfAwareNormalizers\Doctrine\NormalizableTypeWithSQLDeclaration;
+use BuronDigital\SelfAwareNormalizers\Serializer\IntNormalizable;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 
 final readonly class HighLimit implements IntNormalizable, NormalizableTypeWithSQLDeclaration

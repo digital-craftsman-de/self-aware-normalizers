@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\Doctrine;
+namespace BuronDigital\SelfAwareNormalizers\Test\Doctrine;
 
-use DigitalCraftsman\SelfAwareNormalizers\Doctrine\ArrayNormalizableType;
-use DigitalCraftsman\SelfAwareNormalizers\Test\DTO\Project;
+use BuronDigital\SelfAwareNormalizers\Doctrine\ArrayNormalizableType;
+use BuronDigital\SelfAwareNormalizers\Test\DTO\Project;
 
 final class ProjectType extends ArrayNormalizableType
 {

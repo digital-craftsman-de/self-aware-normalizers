@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Doctrine;
+namespace BuronDigital\SelfAwareNormalizers\Doctrine;
 
-use DigitalCraftsman\SelfAwareNormalizers\Test\DTO\GetUsersQuery;
-use DigitalCraftsman\SelfAwareNormalizers\Test\DTO\Project;
-use DigitalCraftsman\SelfAwareNormalizers\Test\DTO\Search;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\Limit;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\ProjectId;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\SearchTerm;
+use BuronDigital\SelfAwareNormalizers\Test\DTO\GetUsersQuery;
+use BuronDigital\SelfAwareNormalizers\Test\DTO\Project;
+use BuronDigital\SelfAwareNormalizers\Test\DTO\Search;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\Limit;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\ProjectId;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\SearchTerm;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\Deprecations\Deprecation;

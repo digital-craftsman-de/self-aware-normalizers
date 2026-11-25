@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Doctrine;
+namespace BuronDigital\SelfAwareNormalizers\Doctrine;
 
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\FloatNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\FloatNormalizable;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
 

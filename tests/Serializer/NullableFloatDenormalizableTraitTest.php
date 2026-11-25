@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Serializer;
+namespace BuronDigital\SelfAwareNormalizers\Serializer;
 
-use DigitalCraftsman\SelfAwareNormalizers\Test\DTO\SearchWithOptionalRange;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\Range;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\SearchTerm;
+use BuronDigital\SelfAwareNormalizers\Test\DTO\SearchWithOptionalRange;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\Range;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\SearchTerm;
 use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;

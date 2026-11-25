@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\ConstructFinder\Nested {
+namespace BuronDigital\SelfAwareNormalizers\Test\ConstructFinder\Nested {
     final class ClassInFirstNamespace
     {
     }

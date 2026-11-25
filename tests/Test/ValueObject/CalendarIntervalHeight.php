@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject;
+namespace BuronDigital\SelfAwareNormalizers\Test\ValueObject;
 
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizable;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\IntNormalizableEnumTrait;
+use BuronDigital\SelfAwareNormalizers\Serializer\IntNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\IntNormalizableEnumTrait;
 
 enum CalendarIntervalHeight: int implements IntNormalizable
 {

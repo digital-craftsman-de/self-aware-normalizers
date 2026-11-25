@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject;
+namespace BuronDigital\SelfAwareNormalizers\Test\ValueObject;
 
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\BoolNormalizable;
+use BuronDigital\SelfAwareNormalizers\Serializer\BoolNormalizable;
 
 final readonly class SubscribedToNewsletter implements BoolNormalizable
 {

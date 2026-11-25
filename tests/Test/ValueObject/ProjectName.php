@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject;
+namespace BuronDigital\SelfAwareNormalizers\Test\ValueObject;
 
-use DigitalCraftsman\SelfAwareNormalizers\Doctrine\StringNormalizableTypeWithMaxLength;
-use DigitalCraftsman\SelfAwareNormalizers\Serializer\StringNormalizable;
+use BuronDigital\SelfAwareNormalizers\Doctrine\StringNormalizableTypeWithMaxLength;
+use BuronDigital\SelfAwareNormalizers\Serializer\StringNormalizable;
 
 final readonly class ProjectName implements StringNormalizable, StringNormalizableTypeWithMaxLength
 {

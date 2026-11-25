@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DigitalCraftsman\SelfAwareNormalizers\Doctrine;
+namespace BuronDigital\SelfAwareNormalizers\Doctrine;
 
-use DigitalCraftsman\SelfAwareNormalizers\Test\Doctrine\AcceptedTermsOfServiceType;
-use DigitalCraftsman\SelfAwareNormalizers\Test\ValueObject\AcceptedTermsOfService;
+use BuronDigital\SelfAwareNormalizers\Test\Doctrine\AcceptedTermsOfServiceType;
+use BuronDigital\SelfAwareNormalizers\Test\ValueObject\AcceptedTermsOfService;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
