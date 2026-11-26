@@ -104,6 +104,13 @@ final readonly class ParameterKind
     public const int UNION = 20;
 
     /**
+     * Literal types true and false, accepted when the value is exactly that bool (like AbstractObjectNormalizer::validateAndDenormalize()).
+     * Target class: null. Extra: null.
+     */
+    public const int TRUE = 21;
+    public const int FALSE = 22;
+
+    /**
      * Whether the values of the kind are self-aware value objects the plan handles inline (single or in a list).
      */
     public static function isValueObject(int $kind): bool

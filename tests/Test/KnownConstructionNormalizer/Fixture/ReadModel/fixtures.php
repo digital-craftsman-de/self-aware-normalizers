@@ -406,6 +406,29 @@ namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fix
     }
 
     /**
+     * Literal types true and false. A PHPDoc type that doesn't match the native type is overruled by it (like for the PropertyNormalizer).
+     */
+    final readonly class Literals
+    {
+        /**
+         * @param true $isConfirmedByDoc
+         * @param bool $isEnabledByNativeType
+         *
+         * @psalm-suppress MismatchingDocblockParamType On purpose
+         */
+        public function __construct(
+            public true $isEnabled,
+            public false $isDeleted,
+            public ?true $isConfirmed,
+            public ?false $isRejected,
+            public bool $isConfirmedByDoc,
+            public true $isEnabledByNativeType,
+            public true $withDefault = true,
+        ) {
+        }
+    }
+
+    /**
      * Not read only, so it's only denormalized through the plan.
      */
     final class Mutable

@@ -104,6 +104,8 @@ final readonly class PlanFactory
     ];
 
     private const array KINDS_OF_BUILTIN_TYPES = self::KINDS_OF_SCALAR_TYPES + [
+        'true' => ParameterKind::TRUE,
+        'false' => ParameterKind::FALSE,
         'mixed' => ParameterKind::MIXED,
         'array' => ParameterKind::ARRAY,
     ];

@@ -26,6 +26,7 @@ use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\R
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\KeyedCollections;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Kind;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Leaf;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Literals;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Located;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Mutable;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\NameValue;
@@ -699,6 +700,88 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
         );
         self::assertNull($diagnosis->limitation);
         self::assertEquals(Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::TRAVERSABLE), $diagnosis->normalizationLimitation);
+    }
+
+    /**
+     * Like AbstractObjectNormalizer::validateAndDenormalize(), the literal types only accept exactly their bool. Any other value falls
+     * back, so the exceptions (message, path, expected types) are the ones of the PropertyNormalizer.
+     */
+    #[Test]
+    public function literal_types_true_and_false_are_handled_like_by_the_property_normalizer(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $data = [
+            'isEnabled' => true,
+            'isDeleted' => false,
+            'isConfirmed' => true,
+            'isRejected' => false,
+            'isConfirmedByDoc' => true,
+            'isEnabledByNativeType' => true,
+        ];
+        $samples = [
+            new Literals(true, false, true, false, true, true),
+            // The PHPDoc type of $isConfirmedByDoc is wrong on purpose
+            new \ReflectionClass(Literals::class)->newInstance(true, false, null, null, false, true),
+        ];
+        $variants = [
+            'valid' => $data,
+            'nulls' => ['isConfirmed' => null, 'isRejected' => null] + $data,
+            'with default' => ['withDefault' => true] + $data,
+            // The PHPDoc type true is overruled by the native type bool
+            'false for the PHPDoc type true' => ['isConfirmedByDoc' => false] + $data,
+        ];
+        foreach (array_keys($data) as $key) {
+            foreach (['other bool' => !$data[$key], 'int' => 1, 'string' => 'true', 'array' => [true]] as $invalidName => $invalidValue) {
+                $variants[sprintf('$%s %s', $key, $invalidName)] = [$key => $invalidValue] + $data;
+            }
+            foreach (SerializerComparison::mutations($data, $key) as $mutationName => $mutatedData) {
+                $variants[sprintf('$%s %s', $key, $mutationName)] = $mutatedData;
+            }
+        }
+        $variants['$withDefault false'] = ['withDefault' => false] + $data;
+
+        // -- Act
+        $differences = [];
+        foreach ($samples as $sample) {
+            $differences[] = self::differenceOfNormalization($comparison, $sample);
+        }
+        $numberOfFailures = 0;
+        foreach ($variants as $variantName => $variant) {
+            foreach ([null, JsonEncoder::FORMAT] as $format) {
+                $differences[] = self::differenceOfDenormalization($comparison, $variant, Literals::class, $format, $variantName);
+                if (SerializerComparison::outcome(static fn () => $comparison->reference->denormalize($variant, Literals::class, $format))[0] === 'exception') {
+                    ++$numberOfFailures;
+                }
+            }
+        }
+        $planOfLiterals = new \ReflectionMethod(KnownConstructionNormalizer::class, 'plan')->invoke($comparison->knownConstructionNormalizer, Literals::class);
+        self::assertIsArray($planOfLiterals);
+
+        // -- Assert
+        self::assertSame([], array_values(array_filter($differences)));
+        // Every invalid value of a literal type fails (the PHPDoc type of $isConfirmedByDoc is overruled)
+        self::assertGreaterThanOrEqual(30, $numberOfFailures);
+        // The plan itself handles valid data
+        foreach (['valid', 'nulls', 'with default', 'false for the PHPDoc type true'] as $variantName) {
+            self::assertSame(
+                SerializerComparison::outcome(static fn () => $comparison->reference->denormalize($variants[$variantName], Literals::class)),
+                SerializerComparison::outcome(static fn () => $comparison->planOnly->denormalize($variants[$variantName], Literals::class)),
+                $variantName,
+            );
+        }
+        self::assertSame(
+            [
+                'isEnabled' => ParameterKind::TRUE,
+                'isDeleted' => ParameterKind::FALSE,
+                'isConfirmed' => ParameterKind::TRUE,
+                'isRejected' => ParameterKind::FALSE,
+                'isConfirmedByDoc' => ParameterKind::BOOL,
+                'isEnabledByNativeType' => ParameterKind::TRUE,
+                'withDefault' => ParameterKind::TRUE,
+            ],
+            array_column($planOfLiterals['parameters'], 1, 0),
+        );
     }
 
     #[Test]

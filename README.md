@@ -272,7 +272,7 @@ Every class that reaches the `KnownConstructionNormalizer` gets a plan attempt. 
 
 - it has at least one non-static property (the `PropertyNormalizer` doesn't support a class without, e.g. an event without payload, so the serializer hands it to the normalizers after it),
 - it has a public constructor whose parameters are exactly its non-static properties, all promoted, public and without hooks (not inherited, and no parent class has private properties),
-- every parameter has a type the plan can express: scalars, `mixed`, arrays and (nested) lists of scalars, self-aware value objects, other classes with a plan and (nested) lists of them, other classes, which are (de)normalized through the serializer, and union types (not intersection types),
+- every parameter has a type the plan can express: scalars, the literal types `true` and `false`, `mixed`, arrays and (nested) lists of scalars, self-aware value objects, other classes with a plan and (nested) lists of them, other classes, which are (de)normalized through the serializer, and union types (not intersection types),
 - it doesn't reference itself (directly or through other classes),
 - no normalizer in front of the `KnownConstructionNormalizer` may handle it.
 

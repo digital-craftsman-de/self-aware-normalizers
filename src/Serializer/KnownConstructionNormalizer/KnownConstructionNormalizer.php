@@ -430,6 +430,12 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
                     ParameterKind::BOOL => is_bool($value)
                         ? $value
                         : throw Exception\FallbackIsRequired::unexpectedValue('bool', $value),
+                    ParameterKind::TRUE => $value === true
+                        ? $value
+                        : throw Exception\FallbackIsRequired::unexpectedValue('true', $value),
+                    ParameterKind::FALSE => $value === false
+                        ? $value
+                        : throw Exception\FallbackIsRequired::unexpectedValue('false', $value),
                     ParameterKind::MIXED => $value,
                     ParameterKind::ARRAY => is_array($value)
                         ? $value
