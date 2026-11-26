@@ -41,6 +41,8 @@ use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\R
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\PrivateConstructor;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ScalarLists;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Scalars;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Signatories;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\SignedContract;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Tree;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\TypeMismatch;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ValueObjects;
@@ -546,6 +548,90 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
         self::assertTrue($isDenormalizationSupported);
         // Through the fallback
         self::assertSame(['name' => 'Example'], $normalizedData);
+    }
+
+    /**
+     * AbstractObjectNormalizer::supportsNormalization() rejects a \Traversable, so the serializer normalizes it element by element (as a
+     * list, or an \ArrayObject when it's empty, countable and empty objects are preserved), directly as well as nested in another object.
+     * The denormalization is the one of any other class.
+     */
+    #[Test]
+    public function traversable_class_is_normalized_like_by_the_serializer_and_only_denormalized_by_the_plan(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $signatories = new Signatories([new Leaf('Anna'), new Leaf('Ben')]);
+        $samples = [
+            $signatories,
+            new Signatories([]),
+            new SignedContract('Example', $signatories, null, []),
+            new SignedContract('Example', new Signatories([]), $signatories, [new Signatories([]), $signatories]),
+        ];
+        $contexts = [
+            [],
+            [AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true],
+            [AbstractObjectNormalizer::SKIP_NULL_VALUES => true],
+            [
+                AbstractObjectNormalizer::SKIP_NULL_VALUES => true,
+                AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true,
+            ],
+        ];
+        $signatoriesData = [
+            'signatories' => [
+                ['name' => 'Anna'],
+                ['name' => 'Ben'],
+            ],
+        ];
+        $data = [
+            'name' => 'Example',
+            'signatories' => $signatoriesData,
+            'optionalSignatories' => [
+                'signatories' => [],
+            ],
+            'signatoriesOfAmendments' => [$signatoriesData, ['signatories' => []]],
+        ];
+
+        // -- Act
+        $differences = [];
+        foreach ($samples as $sample) {
+            foreach ($contexts as $context) {
+                $referenceOutcome = SerializerComparison::outcome(static fn () => $comparison->reference->normalize($sample, null, $context));
+                foreach (['plan' => $comparison->plan, 'plan only' => $comparison->planOnly] as $serializerName => $serializer) {
+                    $outcome = SerializerComparison::outcome(static fn () => $serializer->normalize($sample, null, $context));
+                    if ($outcome !== $referenceOutcome) {
+                        $differences[] = sprintf('%s (%s, %s): normalize differs: %s vs %s', $sample::class, $serializerName, json_encode($context, JSON_THROW_ON_ERROR), json_encode($referenceOutcome, JSON_THROW_ON_ERROR), json_encode($outcome, JSON_THROW_ON_ERROR));
+                    }
+                }
+            }
+        }
+        foreach ([Signatories::class => $signatoriesData, SignedContract::class => $data] as $class => $validData) {
+            foreach ([null, JsonEncoder::FORMAT] as $format) {
+                $differences[] = self::differenceOfDenormalization($comparison, $validData, $class, $format, 'valid');
+                foreach (array_keys($validData) as $key) {
+                    foreach (SerializerComparison::mutations($validData, $key) as $mutationName => $mutatedData) {
+                        $differences[] = self::differenceOfDenormalization($comparison, $mutatedData, $class, $format, sprintf('$%s %s', $key, $mutationName));
+                    }
+                }
+            }
+        }
+        // The normalized data is a list, which can't be denormalized
+        $differences[] = self::differenceOfDenormalization($comparison, [['name' => 'Anna']], Signatories::class, null, 'normalized data');
+        $diagnosis = $comparison->knownConstructionNormalizer->diagnose(Signatories::class);
+
+        // -- Assert
+        self::assertSame([], array_values(array_filter($differences)));
+        self::assertSame([['name' => 'Anna'], ['name' => 'Ben']], $comparison->plan->normalize($signatories));
+        self::assertInstanceOf(\ArrayObject::class, $comparison->plan->normalize(new Signatories([]), null, [AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true]));
+        self::assertFalse($comparison->knownConstructionNormalizer->supportsNormalization($signatories));
+        self::assertTrue($comparison->knownConstructionNormalizer->supportsNormalization(new SignedContract('Example', $signatories, null, [])));
+        // The plan itself handles valid data
+        self::assertEquals(new Signatories([new Leaf('Anna'), new Leaf('Ben')]), $comparison->planOnly->denormalize($signatoriesData, Signatories::class));
+        self::assertEquals(
+            new SignedContract('Example', $signatories, new Signatories([]), [$signatories, new Signatories([])]),
+            $comparison->planOnly->denormalize($data, SignedContract::class, JsonEncoder::FORMAT),
+        );
+        self::assertNull($diagnosis->limitation);
+        self::assertEquals(Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::TRAVERSABLE), $diagnosis->normalizationLimitation);
     }
 
     #[Test]

@@ -37,3 +37,25 @@ final class UntypedParameter
     ) {
     }
 }
+
+/**
+ * Reported as traversable, not as mutable: readonly properties wouldn't change that it's normalized element by element.
+ *
+ * @implements \IteratorAggregate<int, string>
+ */
+final class MutableTraversable implements \IteratorAggregate
+{
+    /**
+     * @param list<string> $names
+     */
+    public function __construct(
+        public array $names,
+    ) {
+    }
+
+    #[\Override]
+    public function getIterator(): \Iterator
+    {
+        return new \ArrayIterator($this->names);
+    }
+}

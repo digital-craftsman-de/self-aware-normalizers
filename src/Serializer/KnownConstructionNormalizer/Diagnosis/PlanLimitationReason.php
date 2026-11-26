@@ -60,10 +60,16 @@ enum PlanLimitationReason: string
 
     // -- Normalization only (the class is planned for the denormalization)
     case PROPERTY_IS_MUTABLE = 'PROPERTY_IS_MUTABLE';
+    /**
+     * AbstractObjectNormalizer::supportsNormalization() rejects a \Traversable, so the serializer normalizes it element by element (e.g.
+     * as a list) instead of through the PropertyNormalizer. Takes precedence over PROPERTY_IS_MUTABLE, as readonly properties don't change
+     * that.
+     */
+    case TRAVERSABLE = 'TRAVERSABLE';
 
     /**
-     * Whether classes with this reason never get a plan by design, as they aren't plain read models (or are handled by another
-     * normalizer). The profiler only lists the other ones as missing the fast path.
+     * Whether classes with this reason never get a plan (or are never normalized through it) by design, as they aren't plain read models
+     * (or are handled by another normalizer or the serializer itself). The profiler only lists the other ones as missing the fast path.
      */
     public function isByDesign(): bool
     {
@@ -76,7 +82,8 @@ enum PlanLimitationReason: string
             self::EXCEPTION,
             self::ANONYMOUS_CLASS,
             self::NOT_A_CLASS,
-            self::CLAIMED_BY_OTHER_NORMALIZER => true,
+            self::CLAIMED_BY_OTHER_NORMALIZER,
+            self::TRAVERSABLE => true,
             default => false,
         };
     }
@@ -139,6 +146,7 @@ enum PlanLimitationReason: string
             self::RECURSIVE_CLASS => 'references itself (directly or through other classes)',
             self::CLAIMED_BY_OTHER_NORMALIZER => 'claimed by a normalizer with a higher priority',
             self::PROPERTY_IS_MUTABLE => 'property is mutable',
+            self::TRAVERSABLE => 'traversable (normalized element by element by the serializer)',
         };
     }
 }

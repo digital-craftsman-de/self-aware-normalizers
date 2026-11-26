@@ -63,9 +63,10 @@ final class KnownConstructionNormalizer implements NormalizerInterface, Denormal
     use NormalizerAwareTrait;
 
     /**
-     * Version of the plan structure, part of the cache key (together with the version of the code, see the constructor).
+     * Version of the plan structure and of what a plan decides, part of the cache key (together with the version of the code, see the
+     * constructor). v4: \Traversable classes are no longer normalized through their plan.
      */
-    private const string PLAN_CACHE_KEY_PREFIX = 'plan-v3';
+    private const string PLAN_CACHE_KEY_PREFIX = 'plan-v4';
 
     /**
      * Context options the plan is used with, whatever their value (option => true). The plan is only used when every option of the

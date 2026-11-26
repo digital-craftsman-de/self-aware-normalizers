@@ -17,6 +17,7 @@ use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\R
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Leaf;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Mutable;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Objects;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Signatories;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ValueObjects;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Count;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Flag;
@@ -349,6 +350,56 @@ final class KnownConstructionNormalizerDataCollectorTest extends TestCase
         // Tagged without priority, like the serializer sorts it
         $normalizers = array_column($collector->getConfiguration()['normalizers'] ?? [], null, 'id');
         self::assertSame(0, $normalizers['app.per_call_normalizer']['priority'] ?? null);
+    }
+
+    /**
+     * The serializer normalizes a \Traversable element by element, so it's no class that missed the fast path.
+     */
+    #[Test]
+    public function traversable_classes_are_shown_as_not_normalized_through_their_plan_by_design(): void
+    {
+        // -- Arrange
+        $kernel = $this->bootedKernel('profiler_traversable', true);
+        $serializer = self::serializer($kernel);
+        $collector = self::collector($kernel);
+
+        // -- Act
+        $serializer->normalize(new Signatories([new Leaf('Example')]));
+        $serializer->denormalize(['signatories' => [['name' => 'Example']]], Signatories::class);
+        $collector->collect(new Request(), new Response());
+
+        // -- Assert
+        self::assertSame([], $collector->getMissed());
+        self::assertSame(
+            [
+                [
+                    'class' => Signatories::class,
+                    'direction' => Recorder::NORMALIZE,
+                    'count' => 1,
+                    'kind' => KnownConstructionNormalizerDataCollector::KIND_NO_PLAN,
+                    'reason' => 'traversable (normalized element by element by the serializer)',
+                    'hint' => null,
+                ],
+            ],
+            $collector->getByDesign(),
+        );
+        // Normalized: the elements through their plan, the traversable class not at all. Denormalized through its plan (with the elements
+        // inline).
+        self::assertSame(
+            [
+                Recorder::NORMALIZE => [
+                    'plan' => 1,
+                    'fallback' => 0,
+                    'notHandled' => 1,
+                ],
+                Recorder::DENORMALIZE => [
+                    'plan' => 1,
+                    'fallback' => 0,
+                    'notHandled' => 0,
+                ],
+            ],
+            $collector->getSummary(),
+        );
     }
 
     #[Test]

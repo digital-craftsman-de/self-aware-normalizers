@@ -416,6 +416,52 @@ namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fix
         }
     }
 
+    /**
+     * Traversable, so the serializer normalizes it element by element (as a list) instead of through an object normalizer. Only
+     * denormalized through the plan.
+     *
+     * @implements \IteratorAggregate<int, Leaf>
+     */
+    final readonly class Signatories implements \IteratorAggregate, \Countable
+    {
+        /**
+         * @param list<Leaf> $signatories
+         */
+        public function __construct(
+            public array $signatories,
+        ) {
+        }
+
+        #[\Override]
+        public function getIterator(): \Iterator
+        {
+            return new \ArrayIterator($this->signatories);
+        }
+
+        #[\Override]
+        public function count(): int
+        {
+            return count($this->signatories);
+        }
+    }
+
+    /**
+     * Traversable classes nested in a planned class.
+     */
+    final readonly class SignedContract
+    {
+        /**
+         * @param list<Signatories> $signatoriesOfAmendments
+         */
+        public function __construct(
+            public string $name,
+            public Signatories $signatories,
+            public ?Signatories $optionalSignatories,
+            public array $signatoriesOfAmendments,
+        ) {
+        }
+    }
+
     final readonly class Optional
     {
         public function __construct(

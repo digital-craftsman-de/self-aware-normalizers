@@ -58,6 +58,7 @@ final class PlanLimitationReasonTest extends TestCase
                 'RECURSIVE_CLASS' => 'references itself (directly or through other classes)',
                 'CLAIMED_BY_OTHER_NORMALIZER' => 'claimed by a normalizer with a higher priority',
                 'PROPERTY_IS_MUTABLE' => 'property is mutable',
+                'TRAVERSABLE' => 'traversable (normalized element by element by the serializer)',
             ],
             $descriptions,
         );
@@ -91,6 +92,7 @@ final class PlanLimitationReasonTest extends TestCase
                 'ANONYMOUS_CLASS',
                 'NOT_A_CLASS',
                 'CLAIMED_BY_OTHER_NORMALIZER',
+                'TRAVERSABLE',
             ],
             $reasonsByDesign,
         );
@@ -123,6 +125,7 @@ final class PlanLimitationReasonTest extends TestCase
                 'RECURSIVE_CLASS' => 'Break the recursion, e.g. by referencing the nested items by id.',
                 'CLAIMED_BY_OTHER_NORMALIZER' => null,
                 'PROPERTY_IS_MUTABLE' => 'Make every property readonly (the class is only denormalized through its plan).',
+                'TRAVERSABLE' => null,
             ],
             $hints,
         );

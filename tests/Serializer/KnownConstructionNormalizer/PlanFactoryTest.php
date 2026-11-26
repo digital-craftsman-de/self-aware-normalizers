@@ -6,6 +6,7 @@ namespace BuronDigital\SelfAwareNormalizers\Serializer\KnownConstructionNormaliz
 
 use BuronDigital\SelfAwareNormalizers\Serializer\StringNormalizableNormalizer;
 use BuronDigital\SelfAwareNormalizers\Test\ConstructFinder\SomeTrait;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis\MutableTraversable;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis\ParameterPassedByReference;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis\UntypedParameter;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis\VariadicParameter;
@@ -21,10 +22,12 @@ use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\R
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\IntersectionParameter;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Kind;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Leaf;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Mutable;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\NonPublicProperty;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ParameterWithoutProperty;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\PrivateConstructor;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ReadModelFailed;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Signatories;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ValueObjects;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Sample\ArrayWithCollectionClassDoc;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Sample\ArrayWithIntOrIterableDoc;
@@ -206,6 +209,39 @@ final class PlanFactoryTest extends TestCase
                 ],
             ],
             $kinds,
+        );
+    }
+
+    /**
+     * The serializer normalizes a \Traversable element by element, so it's only denormalized through its plan, readonly or not.
+     */
+    #[Test]
+    public function mutable_and_traversable_classes_are_only_denormalized_through_their_plan(): void
+    {
+        // -- Arrange
+        $planFactory = new PlanFactory(new PropertyInfoExtractor([], [new PhpDocExtractor(), new ReflectionExtractor()]));
+        $hasPlan = static fn (string $class): bool => true;
+
+        // -- Act
+        $diagnoses = [];
+        foreach ([Leaf::class, Mutable::class, Signatories::class, MutableTraversable::class] as $class) {
+            $diagnosis = $planFactory->diagnose($class, $hasPlan);
+            $diagnoses[$class] = [
+                $diagnosis->plan['isNormalizable'] ?? null,
+                $diagnosis->limitation,
+                $diagnosis->normalizationLimitation?->describe(),
+            ];
+        }
+
+        // -- Assert
+        self::assertSame(
+            [
+                Leaf::class => [true, null, null],
+                Mutable::class => [false, null, 'property is mutable: $name'],
+                Signatories::class => [false, null, 'traversable (normalized element by element by the serializer)'],
+                MutableTraversable::class => [false, null, 'traversable (normalized element by element by the serializer)'],
+            ],
+            $diagnoses,
         );
     }
 

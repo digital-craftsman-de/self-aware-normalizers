@@ -34,6 +34,9 @@ use Symfony\Component\TypeInfo\TypeResolver\ReflectionTypeResolver;
  * - no value object of buron-digital/self-aware-normalizers, no enum and no abstract class (those never reach the normalizer;
  *   the order in which diagnose() checks them only decides the reported reason).
  *
+ * A planned class is only denormalized through its plan (see PlanDiagnosis::$normalizationLimitation) when it has a mutable property or
+ * is a \Traversable, which the serializer normalizes element by element instead of through the PropertyNormalizer.
+ *
  * Everything else returns null, so the class stays with the PropertyNormalizer. diagnose() returns the reason instead (the first
  * limitation found), for the profiler panel; create() is built on it, so the reason is always the one that decided.
  *
@@ -205,7 +208,11 @@ final readonly class PlanFactory
         }
 
         $properties = [];
-        $normalizationLimitation = null;
+        // AbstractObjectNormalizer::supportsNormalization() rejects a \Traversable, so the serializer normalizes it element by element
+        // (Serializer::normalize()) instead of through the PropertyNormalizer: such a class is only denormalized through its plan.
+        $normalizationLimitation = $reflectionClass->implementsInterface(\Traversable::class)
+            ? Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::TRAVERSABLE)
+            : null;
         foreach ($reflectionClass->getProperties() as $property) {
             if ($property->isStatic()) {
                 continue;
