@@ -40,7 +40,7 @@ final class KnownConstructionNormalizerEquivalenceTest extends EquivalenceTestCa
     #[\Override]
     protected static function minimumNumberOfPlannedClasses(): int
     {
-        return 22;
+        return 25;
     }
 
     /**

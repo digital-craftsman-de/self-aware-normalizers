@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.1
+
+- Removed the deprecated abstract doctrine types (`StringNormalizableType`, `IntNormalizableType`, `FloatNormalizableType`, `BoolNormalizableType` and `ArrayNormalizableType`). They were announced to be removed in 2.0.0, but their removal was forgotten and is made up for with this release. See the [upgrade guide](./UPGRADE.md#removed-the-abstract-doctrine-types) for how to switch to the automatic doctrine types.
+- `KnownConstructionNormalizer`: classes implementing `\Traversable` (e.g. through `\IteratorAggregate`) are normalized like by the serializer without it again: element by element (as a list, or an empty object for an empty `\Countable` with `preserve_empty_objects`), directly as well as nested in other classes. The plan normalized them as an object of their properties. They are still denormalized through their plan (diagnosed as `TRAVERSABLE`, by design). Plans cached by 2.0.0 aren't reused.
+- `KnownConstructionNormalizer`: classes with a private property of a parent class are left to the `PropertyNormalizer`, which normalizes and denormalizes that property as well (diagnosed as `PROPERTY_IS_INHERITED`). The plan left it out.
+- `KnownConstructionNormalizer`: classes without properties (e.g. events without payload) are diagnosed as `NO_PROPERTIES` (by design, the `PropertyNormalizer` doesn't support them) instead of `PARAMETERS_DIFFER_FROM_PROPERTIES` with "parameters: [], properties: []". They still get no plan.
+- `KnownConstructionNormalizer`: parameters with the literal types `true` and `false` (also nullable) are handled by the plan instead of leaving their classes to the `PropertyNormalizer` as `UNSUPPORTED_TYPE`. Like for the `PropertyNormalizer`, only exactly the bool of the type is accepted, any other value falls back to it.
+
 ## 2.0.0
 
 - **[Breaking change](./UPGRADE.md#renamed-package-and-namespace)**: Renamed the package from `digital-craftsman/self-aware-normalizers` to `buron-digital/self-aware-normalizers` and the namespace from `DigitalCraftsman\SelfAwareNormalizers` to `BuronDigital\SelfAwareNormalizers`. Apart from the names, nothing changed.

@@ -27,6 +27,11 @@ enum PlanLimitationReason: string
      * A type that isn't an existing class, enum or interface (e.g. "int" or "X[]").
      */
     case NOT_A_CLASS = 'NOT_A_CLASS';
+    /**
+     * No non-static property, also not in a parent class (e.g. an event without payload): the PropertyNormalizer doesn't support such a
+     * class (PropertyNormalizer::supports()), so the serializer hands it to the normalizers after it, whose result the plan can't know.
+     */
+    case NO_PROPERTIES = 'NO_PROPERTIES';
 
     // -- Shape of the class
     case CONSTRUCTOR_IS_NOT_PUBLIC = 'CONSTRUCTOR_IS_NOT_PUBLIC';
@@ -60,10 +65,16 @@ enum PlanLimitationReason: string
 
     // -- Normalization only (the class is planned for the denormalization)
     case PROPERTY_IS_MUTABLE = 'PROPERTY_IS_MUTABLE';
+    /**
+     * AbstractObjectNormalizer::supportsNormalization() rejects a \Traversable, so the serializer normalizes it element by element (e.g.
+     * as a list) instead of through the PropertyNormalizer. Takes precedence over PROPERTY_IS_MUTABLE, as readonly properties don't change
+     * that.
+     */
+    case TRAVERSABLE = 'TRAVERSABLE';
 
     /**
-     * Whether classes with this reason never get a plan by design, as they aren't plain read models (or are handled by another
-     * normalizer). The profiler only lists the other ones as missing the fast path.
+     * Whether classes with this reason never get a plan (or are never normalized through it) by design, as they aren't plain read models
+     * (or are handled by another normalizer or the serializer itself). The profiler only lists the other ones as missing the fast path.
      */
     public function isByDesign(): bool
     {
@@ -76,7 +87,9 @@ enum PlanLimitationReason: string
             self::EXCEPTION,
             self::ANONYMOUS_CLASS,
             self::NOT_A_CLASS,
-            self::CLAIMED_BY_OTHER_NORMALIZER => true,
+            self::NO_PROPERTIES,
+            self::CLAIMED_BY_OTHER_NORMALIZER,
+            self::TRAVERSABLE => true,
             default => false,
         };
     }
@@ -120,6 +133,7 @@ enum PlanLimitationReason: string
             self::EXCEPTION => 'exception',
             self::ANONYMOUS_CLASS => 'anonymous class',
             self::NOT_A_CLASS => 'not a class',
+            self::NO_PROPERTIES => 'no properties (not supported by the PropertyNormalizer)',
             self::CONSTRUCTOR_IS_NOT_PUBLIC => 'constructor is not public',
             self::NO_CONSTRUCTOR => 'no constructor',
             self::PROPERTY_IS_NOT_PUBLIC => 'property is not public',
@@ -139,6 +153,7 @@ enum PlanLimitationReason: string
             self::RECURSIVE_CLASS => 'references itself (directly or through other classes)',
             self::CLAIMED_BY_OTHER_NORMALIZER => 'claimed by a normalizer with a higher priority',
             self::PROPERTY_IS_MUTABLE => 'property is mutable',
+            self::TRAVERSABLE => 'traversable (normalized element by element by the serializer)',
         };
     }
 }

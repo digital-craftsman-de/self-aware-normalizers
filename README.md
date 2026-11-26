@@ -2,7 +2,7 @@
 
 Value objects and DTOs that know how to normalize and denormalize themselves. Implement one small interface and the class works with the Symfony serializer and as a Doctrine type – without writing a single custom normalizer or Doctrine type.
 
-[![Latest Stable Version](https://img.shields.io/badge/stable-2.0.0-blue)](https://packagist.org/packages/buron-digital/self-aware-normalizers)
+[![Latest Stable Version](https://img.shields.io/badge/stable-2.0.1-blue)](https://packagist.org/packages/buron-digital/self-aware-normalizers)
 [![PHP Version Require](https://img.shields.io/badge/php-8.5|8.6-5b5d95)](https://packagist.org/packages/buron-digital/self-aware-normalizers)
 [![codecov](https://codecov.io/gh/buron-digital/self-aware-normalizers/branch/main/graph/badge.svg?token=BL0JKZYLBG)](https://codecov.io/gh/buron-digital/self-aware-normalizers)
 ![Packagist Downloads](https://img.shields.io/packagist/dt/buron-digital/self-aware-normalizers)
@@ -239,8 +239,6 @@ return App::config([
 ]);
 ```
 
-The abstract base types like `StringNormalizableType` are deprecated and will be removed in 2.0.0. Switch to the automatic Doctrine types as described in the [upgrade guide](./UPGRADE.md#from-12-to-130).
-
 ## KnownConstructionNormalizer
 
 An optional fast path in front of Symfony's `PropertyNormalizer` for plain constructor-promoted classes like read models, DTOs, commands, queries and events. It's disabled by default.
@@ -270,14 +268,15 @@ The `KnownConstructionNormalizer` mirrors internals of `symfony/serializer`, `sy
 
 Every class that reaches the `KnownConstructionNormalizer` gets a plan attempt. A class gets a plan when:
 
-- it has a public constructor whose parameters are exactly its non-static properties, all promoted, public and without hooks (not inherited),
-- every parameter has a type the plan can express: scalars, `mixed`, arrays and (nested) lists of scalars, self-aware value objects, other classes with a plan and (nested) lists of them, other classes, which are (de)normalized through the serializer, and union types (not intersection types),
+- it has at least one non-static property (the `PropertyNormalizer` doesn't support a class without, e.g. an event without payload, so the serializer hands it to the normalizers after it),
+- it has a public constructor whose parameters are exactly its non-static properties, all promoted, public and without hooks (not inherited, and no parent class has private properties),
+- every parameter has a type the plan can express: scalars, the literal types `true` and `false`, `mixed`, arrays and (nested) lists of scalars, self-aware value objects, other classes with a plan and (nested) lists of them, other classes, which are (de)normalized through the serializer, and union types (not intersection types),
 - it doesn't reference itself (directly or through other classes),
 - no normalizer in front of the `KnownConstructionNormalizer` may handle it.
 
 **Union types** (native like `A|B` or `int|string`, or in collections like `list<A|B>` or `list<SomeInterface>`) are fine for the normalization: like the `PropertyNormalizer`, which never reads the declared type when normalizing, the plan handles every value by its runtime class (planned classes and value objects inline, everything else through the serializer). For the denormalization, the `PropertyNormalizer` tries the members of a union in order, and `symfony/serializer` 8.1 and 8.2 differ for the elements of collections (8.1 keeps them as they are, 8.2 builds them). The plan only mirrors unions of scalars (a value of the type of a member is kept as it is); a set value of a union with other members makes the object fall back to the `PropertyNormalizer`, which the profiler panel shows.
 
-Classes with a mutable (not `readonly`) property are only denormalized through their plan. Interfaces, enums, abstract classes, internal classes, exceptions, anonymous classes and self-aware value objects never get a plan. Only the formats `null` and `json` are supported. As the fallback is built without class metadata factory, **serializer mapping is ignored** for all classes handled by it or by the `KnownConstructionNormalizer` (attributes like `#[Groups]`, `#[SerializedName]` or `#[Ignore]` and mapping files). The [profiler panel](#profiler-panel) lists the attributes it finds on the classes of a request.
+Classes with a mutable (not `readonly`) property and classes implementing `\Traversable` (e.g. through `\IteratorAggregate`), which the serializer normalizes element by element (as a list) instead of through the `PropertyNormalizer`, are only denormalized through their plan. Interfaces, enums, abstract classes, internal classes, exceptions, anonymous classes, classes without properties and self-aware value objects never get a plan. Only the formats `null` and `json` are supported. As the fallback is built without class metadata factory, **serializer mapping is ignored** for all classes handled by it or by the `KnownConstructionNormalizer` (attributes like `#[Groups]`, `#[SerializedName]` or `#[Ignore]` and mapping files). The [profiler panel](#profiler-panel) lists the attributes it finds on the classes of a request.
 
 ### Setup
 

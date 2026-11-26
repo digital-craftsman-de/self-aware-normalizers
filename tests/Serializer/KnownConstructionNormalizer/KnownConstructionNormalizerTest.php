@@ -26,6 +26,7 @@ use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\R
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\KeyedCollections;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Kind;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Leaf;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Literals;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Located;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Mutable;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\NameValue;
@@ -41,9 +42,12 @@ use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\R
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\PrivateConstructor;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ScalarLists;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Scalars;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Signatories;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\SignedContract;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Tree;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\TypeMismatch;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ValueObjects;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\WithInheritedSecret;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\WithSettings;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\WithStrictName;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Count;
@@ -478,6 +482,7 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
             NonPublicProperty::class,
             Base::class,
             Inherited::class,
+            WithInheritedSecret::class,
             ParameterWithoutProperty::class,
             AdditionalParameter::class,
             IntersectionParameter::class,
@@ -507,6 +512,71 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
         // -- Assert
         self::assertSame([], $supportedClasses);
         self::assertTrue($comparison->knownConstructionNormalizer->supportsDenormalization([], Leaf::class));
+    }
+
+    /**
+     * The PropertyNormalizer normalizes and denormalizes the private properties of the parent classes as well.
+     */
+    #[Test]
+    public function class_with_private_property_of_a_parent_class_is_left_to_the_property_normalizer(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $withInheritedSecret = new WithInheritedSecret('Example');
+
+        // -- Act
+        $isNormalizationSupported = $comparison->knownConstructionNormalizer->supportsNormalization($withInheritedSecret);
+        $isDenormalizationSupported = $comparison->knownConstructionNormalizer->supportsDenormalization(['name' => 'Example'], WithInheritedSecret::class);
+        $differences = [
+            self::differenceOfNormalization($comparison, $withInheritedSecret),
+            self::differenceOfDenormalization($comparison, ['name' => 'Example', 'secret' => 'Other'], WithInheritedSecret::class, null, 'with secret'),
+        ];
+
+        // -- Assert
+        self::assertFalse($isNormalizationSupported);
+        self::assertFalse($isDenormalizationSupported);
+        self::assertSame([], array_values(array_filter($differences)));
+        self::assertSame(['name' => 'Example', 'secret' => 'Secret'], $comparison->plan->normalize($withInheritedSecret));
+    }
+
+    /**
+     * The PropertyNormalizer doesn't support a class without properties (e.g. an event without payload), so the result is the one of the
+     * normalizers after it, whatever the context.
+     */
+    #[Test]
+    public function class_without_properties_is_left_to_the_normalizers_after_the_property_normalizer(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $noProperties = new NoProperties();
+        $contexts = [
+            [],
+            [AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => false],
+            [AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true],
+            [AbstractObjectNormalizer::SKIP_NULL_VALUES => true],
+        ];
+
+        // -- Act
+        $differences = [];
+        foreach ($contexts as $context) {
+            $referenceOutcome = SerializerComparison::outcome(static fn () => $comparison->reference->normalize($noProperties, null, $context));
+            $planOutcome = SerializerComparison::outcome(static fn () => $comparison->plan->normalize($noProperties, null, $context));
+            if ($referenceOutcome !== $planOutcome) {
+                $differences[] = sprintf('normalize (%s) differs: %s vs %s', json_encode($context, JSON_THROW_ON_ERROR), json_encode($referenceOutcome, JSON_THROW_ON_ERROR), json_encode($planOutcome, JSON_THROW_ON_ERROR));
+            }
+        }
+        foreach ([[], ['unknownKey' => 'Example']] as $data) {
+            foreach ([null, JsonEncoder::FORMAT] as $format) {
+                $differences[] = self::differenceOfDenormalization($comparison, $data, NoProperties::class, $format, json_encode($data, JSON_THROW_ON_ERROR));
+            }
+        }
+        $diagnosis = $comparison->knownConstructionNormalizer->diagnose(NoProperties::class);
+
+        // -- Assert
+        self::assertSame([], array_values(array_filter($differences)));
+        self::assertFalse($comparison->knownConstructionNormalizer->supportsNormalization($noProperties));
+        self::assertFalse($comparison->knownConstructionNormalizer->supportsDenormalization([], NoProperties::class));
+        self::assertEquals(Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::NO_PROPERTIES), $diagnosis->limitation);
     }
 
     #[Test]
@@ -546,6 +616,172 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
         self::assertTrue($isDenormalizationSupported);
         // Through the fallback
         self::assertSame(['name' => 'Example'], $normalizedData);
+    }
+
+    /**
+     * AbstractObjectNormalizer::supportsNormalization() rejects a \Traversable, so the serializer normalizes it element by element (as a
+     * list, or an \ArrayObject when it's empty, countable and empty objects are preserved), directly as well as nested in another object.
+     * The denormalization is the one of any other class.
+     */
+    #[Test]
+    public function traversable_class_is_normalized_like_by_the_serializer_and_only_denormalized_by_the_plan(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $signatories = new Signatories([new Leaf('Anna'), new Leaf('Ben')]);
+        $samples = [
+            $signatories,
+            new Signatories([]),
+            new SignedContract('Example', $signatories, null, []),
+            new SignedContract('Example', new Signatories([]), $signatories, [new Signatories([]), $signatories]),
+        ];
+        $contexts = [
+            [],
+            [AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true],
+            [AbstractObjectNormalizer::SKIP_NULL_VALUES => true],
+            [
+                AbstractObjectNormalizer::SKIP_NULL_VALUES => true,
+                AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true,
+            ],
+        ];
+        $signatoriesData = [
+            'signatories' => [
+                ['name' => 'Anna'],
+                ['name' => 'Ben'],
+            ],
+        ];
+        $data = [
+            'name' => 'Example',
+            'signatories' => $signatoriesData,
+            'optionalSignatories' => [
+                'signatories' => [],
+            ],
+            'signatoriesOfAmendments' => [$signatoriesData, ['signatories' => []]],
+        ];
+
+        // -- Act
+        $differences = [];
+        foreach ($samples as $sample) {
+            foreach ($contexts as $context) {
+                $referenceOutcome = SerializerComparison::outcome(static fn () => $comparison->reference->normalize($sample, null, $context));
+                foreach (['plan' => $comparison->plan, 'plan only' => $comparison->planOnly] as $serializerName => $serializer) {
+                    $outcome = SerializerComparison::outcome(static fn () => $serializer->normalize($sample, null, $context));
+                    if ($outcome !== $referenceOutcome) {
+                        $differences[] = sprintf('%s (%s, %s): normalize differs: %s vs %s', $sample::class, $serializerName, json_encode($context, JSON_THROW_ON_ERROR), json_encode($referenceOutcome, JSON_THROW_ON_ERROR), json_encode($outcome, JSON_THROW_ON_ERROR));
+                    }
+                }
+            }
+        }
+        foreach ([Signatories::class => $signatoriesData, SignedContract::class => $data] as $class => $validData) {
+            foreach ([null, JsonEncoder::FORMAT] as $format) {
+                $differences[] = self::differenceOfDenormalization($comparison, $validData, $class, $format, 'valid');
+                foreach (array_keys($validData) as $key) {
+                    foreach (SerializerComparison::mutations($validData, $key) as $mutationName => $mutatedData) {
+                        $differences[] = self::differenceOfDenormalization($comparison, $mutatedData, $class, $format, sprintf('$%s %s', $key, $mutationName));
+                    }
+                }
+            }
+        }
+        // The normalized data is a list, which can't be denormalized
+        $differences[] = self::differenceOfDenormalization($comparison, [['name' => 'Anna']], Signatories::class, null, 'normalized data');
+        $diagnosis = $comparison->knownConstructionNormalizer->diagnose(Signatories::class);
+
+        // -- Assert
+        self::assertSame([], array_values(array_filter($differences)));
+        self::assertSame([['name' => 'Anna'], ['name' => 'Ben']], $comparison->plan->normalize($signatories));
+        self::assertInstanceOf(\ArrayObject::class, $comparison->plan->normalize(new Signatories([]), null, [AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true]));
+        self::assertFalse($comparison->knownConstructionNormalizer->supportsNormalization($signatories));
+        self::assertTrue($comparison->knownConstructionNormalizer->supportsNormalization(new SignedContract('Example', $signatories, null, [])));
+        // The plan itself handles valid data
+        self::assertEquals(new Signatories([new Leaf('Anna'), new Leaf('Ben')]), $comparison->planOnly->denormalize($signatoriesData, Signatories::class));
+        self::assertEquals(
+            new SignedContract('Example', $signatories, new Signatories([]), [$signatories, new Signatories([])]),
+            $comparison->planOnly->denormalize($data, SignedContract::class, JsonEncoder::FORMAT),
+        );
+        self::assertNull($diagnosis->limitation);
+        self::assertEquals(Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::TRAVERSABLE), $diagnosis->normalizationLimitation);
+    }
+
+    /**
+     * Like AbstractObjectNormalizer::validateAndDenormalize(), the literal types only accept exactly their bool. Any other value falls
+     * back, so the exceptions (message, path, expected types) are the ones of the PropertyNormalizer.
+     */
+    #[Test]
+    public function literal_types_true_and_false_are_handled_like_by_the_property_normalizer(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $data = [
+            'isEnabled' => true,
+            'isDeleted' => false,
+            'isConfirmed' => true,
+            'isRejected' => false,
+            'isConfirmedByDoc' => true,
+            'isEnabledByNativeType' => true,
+        ];
+        $samples = [
+            new Literals(true, false, true, false, true, true),
+            // The PHPDoc type of $isConfirmedByDoc is wrong on purpose
+            new \ReflectionClass(Literals::class)->newInstance(true, false, null, null, false, true),
+        ];
+        $variants = [
+            'valid' => $data,
+            'nulls' => ['isConfirmed' => null, 'isRejected' => null] + $data,
+            'with default' => ['withDefault' => true] + $data,
+            // The PHPDoc type true is overruled by the native type bool
+            'false for the PHPDoc type true' => ['isConfirmedByDoc' => false] + $data,
+        ];
+        foreach (array_keys($data) as $key) {
+            foreach (['other bool' => !$data[$key], 'int' => 1, 'string' => 'true', 'array' => [true]] as $invalidName => $invalidValue) {
+                $variants[sprintf('$%s %s', $key, $invalidName)] = [$key => $invalidValue] + $data;
+            }
+            foreach (SerializerComparison::mutations($data, $key) as $mutationName => $mutatedData) {
+                $variants[sprintf('$%s %s', $key, $mutationName)] = $mutatedData;
+            }
+        }
+        $variants['$withDefault false'] = ['withDefault' => false] + $data;
+
+        // -- Act
+        $differences = [];
+        foreach ($samples as $sample) {
+            $differences[] = self::differenceOfNormalization($comparison, $sample);
+        }
+        $numberOfFailures = 0;
+        foreach ($variants as $variantName => $variant) {
+            foreach ([null, JsonEncoder::FORMAT] as $format) {
+                $differences[] = self::differenceOfDenormalization($comparison, $variant, Literals::class, $format, $variantName);
+                if (SerializerComparison::outcome(static fn () => $comparison->reference->denormalize($variant, Literals::class, $format))[0] === 'exception') {
+                    ++$numberOfFailures;
+                }
+            }
+        }
+        $planOfLiterals = new \ReflectionMethod(KnownConstructionNormalizer::class, 'plan')->invoke($comparison->knownConstructionNormalizer, Literals::class);
+        self::assertIsArray($planOfLiterals);
+
+        // -- Assert
+        self::assertSame([], array_values(array_filter($differences)));
+        // Every invalid value of a literal type fails (the PHPDoc type of $isConfirmedByDoc is overruled)
+        self::assertGreaterThanOrEqual(30, $numberOfFailures);
+        // The plan itself handles valid data
+        foreach (['valid', 'nulls', 'with default', 'false for the PHPDoc type true'] as $variantName) {
+            self::assertSame(
+                SerializerComparison::outcome(static fn () => $comparison->reference->denormalize($variants[$variantName], Literals::class)),
+                SerializerComparison::outcome(static fn () => $comparison->planOnly->denormalize($variants[$variantName], Literals::class)),
+                $variantName,
+            );
+        }
+        self::assertSame(
+            [
+                'isEnabled' => ParameterKind::TRUE,
+                'isDeleted' => ParameterKind::FALSE,
+                'isConfirmed' => ParameterKind::TRUE,
+                'isRejected' => ParameterKind::FALSE,
+                'isConfirmedByDoc' => ParameterKind::BOOL,
+                'isEnabledByNativeType' => ParameterKind::TRUE,
+                'withDefault' => ParameterKind::TRUE,
+            ],
+            array_column($planOfLiterals['parameters'], 1, 0),
+        );
     }
 
     #[Test]

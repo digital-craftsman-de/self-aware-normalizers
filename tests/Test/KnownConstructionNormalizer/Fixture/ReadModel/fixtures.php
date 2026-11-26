@@ -406,12 +406,81 @@ namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fix
     }
 
     /**
+     * Literal types true and false. A PHPDoc type that doesn't match the native type is overruled by it (like for the PropertyNormalizer).
+     */
+    final readonly class Literals
+    {
+        /**
+         * @param true $isConfirmedByDoc
+         * @param bool $isEnabledByNativeType
+         *
+         * @psalm-suppress MismatchingDocblockParamType On purpose
+         */
+        public function __construct(
+            public true $isEnabled,
+            public false $isDeleted,
+            public ?true $isConfirmed,
+            public ?false $isRejected,
+            public bool $isConfirmedByDoc,
+            public true $isEnabledByNativeType,
+            public true $withDefault = true,
+        ) {
+        }
+    }
+
+    /**
      * Not read only, so it's only denormalized through the plan.
      */
     final class Mutable
     {
         public function __construct(
             public string $name,
+        ) {
+        }
+    }
+
+    /**
+     * Traversable, so the serializer normalizes it element by element (as a list) instead of through an object normalizer. Only
+     * denormalized through the plan.
+     *
+     * @implements \IteratorAggregate<int, Leaf>
+     */
+    final readonly class Signatories implements \IteratorAggregate, \Countable
+    {
+        /**
+         * @param list<Leaf> $signatories
+         */
+        public function __construct(
+            public array $signatories,
+        ) {
+        }
+
+        #[\Override]
+        public function getIterator(): \Iterator
+        {
+            return new \ArrayIterator($this->signatories);
+        }
+
+        #[\Override]
+        public function count(): int
+        {
+            return count($this->signatories);
+        }
+    }
+
+    /**
+     * Traversable classes nested in a planned class.
+     */
+    final readonly class SignedContract
+    {
+        /**
+         * @param list<Signatories> $signatoriesOfAmendments
+         */
+        public function __construct(
+            public string $name,
+            public Signatories $signatories,
+            public ?Signatories $optionalSignatories,
+            public array $signatoriesOfAmendments,
         ) {
         }
     }
@@ -635,6 +704,38 @@ namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fix
     {
     }
 
+    abstract class SecretHolder
+    {
+        private string $secret = 'Secret';
+
+        public function secret(): string
+        {
+            return $this->secret;
+        }
+    }
+
+    abstract class SecretHolderWithCounter extends SecretHolder
+    {
+        private static int $counter = 0;
+
+        public static function counter(): int
+        {
+            return self::$counter;
+        }
+    }
+
+    /**
+     * The PropertyNormalizer reads and writes the private property of the parent of the parent class as well, which isn't part of the
+     * properties of the class itself.
+     */
+    final class WithInheritedSecret extends SecretHolderWithCounter
+    {
+        public function __construct(
+            public string $name,
+        ) {
+        }
+    }
+
     final readonly class ParameterWithoutProperty
     {
         public string $upperCaseName;
@@ -682,7 +783,30 @@ namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fix
         }
     }
 
+    /**
+     * E.g. an event without payload. Not supported by the PropertyNormalizer, so the serializer hands it to the normalizers after it.
+     */
     final readonly class NoProperties
+    {
+        public function __construct()
+        {
+        }
+    }
+
+    final class OnlyStaticProperty
+    {
+        private static int $counter = 0;
+
+        public function __construct()
+        {
+            ++self::$counter;
+        }
+    }
+
+    /**
+     * Only the private property of the parent class, which the PropertyNormalizer supports the class for.
+     */
+    final class OnlySecret extends SecretHolder
     {
         public function __construct()
         {

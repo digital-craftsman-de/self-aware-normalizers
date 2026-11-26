@@ -39,6 +39,7 @@ final class PlanLimitationReasonTest extends TestCase
                 'EXCEPTION' => 'exception',
                 'ANONYMOUS_CLASS' => 'anonymous class',
                 'NOT_A_CLASS' => 'not a class',
+                'NO_PROPERTIES' => 'no properties (not supported by the PropertyNormalizer)',
                 'CONSTRUCTOR_IS_NOT_PUBLIC' => 'constructor is not public',
                 'NO_CONSTRUCTOR' => 'no constructor',
                 'PROPERTY_IS_NOT_PUBLIC' => 'property is not public',
@@ -58,6 +59,7 @@ final class PlanLimitationReasonTest extends TestCase
                 'RECURSIVE_CLASS' => 'references itself (directly or through other classes)',
                 'CLAIMED_BY_OTHER_NORMALIZER' => 'claimed by a normalizer with a higher priority',
                 'PROPERTY_IS_MUTABLE' => 'property is mutable',
+                'TRAVERSABLE' => 'traversable (normalized element by element by the serializer)',
             ],
             $descriptions,
         );
@@ -90,7 +92,9 @@ final class PlanLimitationReasonTest extends TestCase
                 'EXCEPTION',
                 'ANONYMOUS_CLASS',
                 'NOT_A_CLASS',
+                'NO_PROPERTIES',
                 'CLAIMED_BY_OTHER_NORMALIZER',
+                'TRAVERSABLE',
             ],
             $reasonsByDesign,
         );
@@ -104,6 +108,7 @@ final class PlanLimitationReasonTest extends TestCase
                 'EXCEPTION' => null,
                 'ANONYMOUS_CLASS' => null,
                 'NOT_A_CLASS' => null,
+                'NO_PROPERTIES' => null,
                 'CONSTRUCTOR_IS_NOT_PUBLIC' => 'Make the constructor public.',
                 'NO_CONSTRUCTOR' => 'Promote every property in the constructor, with parameters exactly like the properties.',
                 'PROPERTY_IS_NOT_PUBLIC' => 'Make the property public (readonly).',
@@ -123,6 +128,7 @@ final class PlanLimitationReasonTest extends TestCase
                 'RECURSIVE_CLASS' => 'Break the recursion, e.g. by referencing the nested items by id.',
                 'CLAIMED_BY_OTHER_NORMALIZER' => null,
                 'PROPERTY_IS_MUTABLE' => 'Make every property readonly (the class is only denormalized through its plan).',
+                'TRAVERSABLE' => null,
             ],
             $hints,
         );

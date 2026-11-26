@@ -6,11 +6,13 @@ namespace BuronDigital\SelfAwareNormalizers\Serializer\KnownConstructionNormaliz
 
 use BuronDigital\SelfAwareNormalizers\Serializer\StringNormalizableNormalizer;
 use BuronDigital\SelfAwareNormalizers\Test\ConstructFinder\SomeTrait;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis\MutableTraversable;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis\ParameterPassedByReference;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis\UntypedParameter;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis\VariadicParameter;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence\ThrowingPropertyTypeExtractor;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\FixedPropertyTypeExtractor;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Other\Settings;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\AdditionalParameter;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Base;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Boxed;
@@ -21,11 +23,19 @@ use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\R
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\IntersectionParameter;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Kind;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Leaf;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Mutable;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\NoConstructor;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\NonPublicProperty;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\NoProperties;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\OnlySecret;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\OnlyStaticProperty;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ParameterWithoutProperty;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\PrivateConstructor;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ReadModelFailed;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\SecretHolder;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Signatories;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ValueObjects;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\WithInheritedSecret;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Sample\ArrayWithCollectionClassDoc;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Sample\ArrayWithIntOrIterableDoc;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Sample\ArrayWithIterableDoc;
@@ -127,11 +137,17 @@ final class PlanFactoryTest extends TestCase
         foreach ([
             Kind::class,
             Base::class,
+            NoProperties::class,
+            NoConstructor::class,
+            OnlyStaticProperty::class,
+            OnlySecret::class,
+            Settings::class,
             PrivateConstructor::class,
             NonPublicProperty::class,
             ParameterWithoutProperty::class,
             Hooked::class,
             Inherited::class,
+            WithInheritedSecret::class,
             VariadicParameter::class,
             ParameterPassedByReference::class,
             AdditionalParameter::class,
@@ -146,11 +162,20 @@ final class PlanFactoryTest extends TestCase
             [
                 Kind::class => 'enum',
                 Base::class => 'abstract class',
+                NoProperties::class => 'no properties (not supported by the PropertyNormalizer)',
+                NoConstructor::class => 'no properties (not supported by the PropertyNormalizer)',
+                OnlyStaticProperty::class => 'no properties (not supported by the PropertyNormalizer)',
+                // The PropertyNormalizer supports it for the private property of the parent class
+                OnlySecret::class => sprintf('property is inherited: $secret (declared in %s)', SecretHolder::class),
+                // Reported before its property that isn't promoted
+                Settings::class => 'no constructor',
                 PrivateConstructor::class => 'constructor is not public',
                 NonPublicProperty::class => 'property is not public: $secret',
                 ParameterWithoutProperty::class => 'property is not promoted: $upperCaseName',
                 Hooked::class => 'property has hooks: $name',
                 Inherited::class => sprintf('property is inherited: $name (declared in %s)', Base::class),
+                // A private property of a parent class (not of the parent class in between, whose private property is static)
+                WithInheritedSecret::class => sprintf('property is inherited: $secret (declared in %s)', SecretHolder::class),
                 VariadicParameter::class => 'parameter is variadic: $names',
                 ParameterPassedByReference::class => 'parameter is passed by reference: $reference',
                 AdditionalParameter::class => 'parameter is not promoted: $unused',
@@ -206,6 +231,39 @@ final class PlanFactoryTest extends TestCase
                 ],
             ],
             $kinds,
+        );
+    }
+
+    /**
+     * The serializer normalizes a \Traversable element by element, so it's only denormalized through its plan, readonly or not.
+     */
+    #[Test]
+    public function mutable_and_traversable_classes_are_only_denormalized_through_their_plan(): void
+    {
+        // -- Arrange
+        $planFactory = new PlanFactory(new PropertyInfoExtractor([], [new PhpDocExtractor(), new ReflectionExtractor()]));
+        $hasPlan = static fn (string $class): bool => true;
+
+        // -- Act
+        $diagnoses = [];
+        foreach ([Leaf::class, Mutable::class, Signatories::class, MutableTraversable::class] as $class) {
+            $diagnosis = $planFactory->diagnose($class, $hasPlan);
+            $diagnoses[$class] = [
+                $diagnosis->plan['isNormalizable'] ?? null,
+                $diagnosis->limitation,
+                $diagnosis->normalizationLimitation?->describe(),
+            ];
+        }
+
+        // -- Assert
+        self::assertSame(
+            [
+                Leaf::class => [true, null, null],
+                Mutable::class => [false, null, 'property is mutable: $name'],
+                Signatories::class => [false, null, 'traversable (normalized element by element by the serializer)'],
+                MutableTraversable::class => [false, null, 'traversable (normalized element by element by the serializer)'],
+            ],
+            $diagnoses,
         );
     }
 
