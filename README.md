@@ -239,8 +239,6 @@ return App::config([
 ]);
 ```
 
-The abstract base types like `StringNormalizableType` are deprecated and will be removed in 2.0.0. Switch to the automatic Doctrine types as described in the [upgrade guide](./UPGRADE.md#from-12-to-130).
-
 ## KnownConstructionNormalizer
 
 An optional fast path in front of Symfony's `PropertyNormalizer` for plain constructor-promoted classes like read models, DTOs, commands, queries and events. It's disabled by default.

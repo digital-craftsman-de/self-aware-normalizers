@@ -15,7 +15,6 @@
     "@default": true,
     "IncrementInteger": {
       "ignore": [
-        "BuronDigital\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableType::convertToPHPValue",
         "BuronDigital\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableThroughLookupType::convertToPHPValue"
       ],
       "ignoreSourceCodeByRegex": [
@@ -25,7 +24,6 @@
     },
     "DecrementInteger": {
       "ignore": [
-        "BuronDigital\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableType::convertToPHPValue",
         "BuronDigital\\SelfAwareNormalizers\\Doctrine\\ArrayNormalizableThroughLookupType::convertToPHPValue"
       ],
       "ignoreSourceCodeByRegex": [
