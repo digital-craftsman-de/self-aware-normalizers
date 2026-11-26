@@ -538,6 +538,46 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
         self::assertSame(['name' => 'Example', 'secret' => 'Secret'], $comparison->plan->normalize($withInheritedSecret));
     }
 
+    /**
+     * The PropertyNormalizer doesn't support a class without properties (e.g. an event without payload), so the result is the one of the
+     * normalizers after it, whatever the context.
+     */
+    #[Test]
+    public function class_without_properties_is_left_to_the_normalizers_after_the_property_normalizer(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $noProperties = new NoProperties();
+        $contexts = [
+            [],
+            [AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => false],
+            [AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true],
+            [AbstractObjectNormalizer::SKIP_NULL_VALUES => true],
+        ];
+
+        // -- Act
+        $differences = [];
+        foreach ($contexts as $context) {
+            $referenceOutcome = SerializerComparison::outcome(static fn () => $comparison->reference->normalize($noProperties, null, $context));
+            $planOutcome = SerializerComparison::outcome(static fn () => $comparison->plan->normalize($noProperties, null, $context));
+            if ($referenceOutcome !== $planOutcome) {
+                $differences[] = sprintf('normalize (%s) differs: %s vs %s', json_encode($context, JSON_THROW_ON_ERROR), json_encode($referenceOutcome, JSON_THROW_ON_ERROR), json_encode($planOutcome, JSON_THROW_ON_ERROR));
+            }
+        }
+        foreach ([[], ['unknownKey' => 'Example']] as $data) {
+            foreach ([null, JsonEncoder::FORMAT] as $format) {
+                $differences[] = self::differenceOfDenormalization($comparison, $data, NoProperties::class, $format, json_encode($data, JSON_THROW_ON_ERROR));
+            }
+        }
+        $diagnosis = $comparison->knownConstructionNormalizer->diagnose(NoProperties::class);
+
+        // -- Assert
+        self::assertSame([], array_values(array_filter($differences)));
+        self::assertFalse($comparison->knownConstructionNormalizer->supportsNormalization($noProperties));
+        self::assertFalse($comparison->knownConstructionNormalizer->supportsDenormalization([], NoProperties::class));
+        self::assertEquals(Diagnosis\PlanLimitation::ofClass(Diagnosis\PlanLimitationReason::NO_PROPERTIES), $diagnosis->limitation);
+    }
+
     #[Test]
     public function class_with_property_without_type_is_left_to_the_property_normalizer(): void
     {

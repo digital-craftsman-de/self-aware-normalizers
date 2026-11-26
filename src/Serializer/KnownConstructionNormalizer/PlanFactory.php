@@ -31,6 +31,7 @@ use Symfony\Component\TypeInfo\TypeResolver\ReflectionTypeResolver;
  * - each parameter has a type the plan can handle (see classifyType()); the type is resolved exactly like
  *   AbstractObjectNormalizer::denormalizeParameter() does it (type extractor of the PropertyNormalizer, overruled by the native
  *   parameter type when they disagree),
+ * - at least one non-static property (the PropertyNormalizer doesn't support a class without, see NO_PROPERTIES),
  * - no value object of buron-digital/self-aware-normalizers, no enum and no abstract class (those never reach the normalizer;
  *   the order in which diagnose() checks them only decides the reported reason).
  *
@@ -193,6 +194,9 @@ final readonly class PlanFactory
             $reflectionClass->implementsInterface(\Throwable::class) => Diagnosis\PlanLimitationReason::EXCEPTION,
             // The name of an anonymous class can't be part of the key of a cached plan
             $reflectionClass->isAnonymous() => Diagnosis\PlanLimitationReason::ANONYMOUS_CLASS,
+            // Not supported by the PropertyNormalizer (PropertyNormalizer::supports()), so the serializer hands it to the normalizers after
+            // it (e.g. the ObjectNormalizer of the framework), whose result the plan can't know
+            !self::hasNonStaticProperty($reflectionClass) => Diagnosis\PlanLimitationReason::NO_PROPERTIES,
             // The only remaining reason for a class not to be instantiable
             !$reflectionClass->isInstantiable() => Diagnosis\PlanLimitationReason::CONSTRUCTOR_IS_NOT_PUBLIC,
             default => null,
@@ -264,14 +268,13 @@ final readonly class PlanFactory
         }
 
         // Every property is promoted, so the parameters must be exactly the properties (a parameter without a property would be treated
-        // as missing by the PropertyNormalizer).
+        // as missing by the PropertyNormalizer). There is at least one property (see NO_PROPERTIES and the private properties of the parent
+        // classes above).
         $namesOfParameters = array_map(
             static fn (array $parameterPlan): string => $parameterPlan[0],
             $parameters,
         );
-        if ($properties === []
-            || $namesOfParameters !== $properties
-        ) {
+        if ($namesOfParameters !== $properties) {
             return Diagnosis\PlanDiagnosis::notPlanned(new Diagnosis\PlanLimitation(
                 Diagnosis\PlanLimitationReason::PARAMETERS_DIFFER_FROM_PROPERTIES,
                 null,
@@ -291,6 +294,25 @@ final readonly class PlanFactory
             ],
             $normalizationLimitation,
         );
+    }
+
+    /**
+     * Same as PropertyNormalizer::supports() without class discriminator resolver (the fallback has none): whether the class or one of
+     * its parent classes has a non-static property.
+     *
+     * @param \ReflectionClass<object> $reflectionClass
+     */
+    private static function hasNonStaticProperty(\ReflectionClass $reflectionClass): bool
+    {
+        for ($currentClass = $reflectionClass; $currentClass !== false; $currentClass = $currentClass->getParentClass()) {
+            foreach ($currentClass->getProperties() as $property) {
+                if (!$property->isStatic()) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

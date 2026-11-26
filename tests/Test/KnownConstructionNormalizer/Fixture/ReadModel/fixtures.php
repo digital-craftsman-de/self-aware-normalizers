@@ -760,7 +760,30 @@ namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fix
         }
     }
 
+    /**
+     * E.g. an event without payload. Not supported by the PropertyNormalizer, so the serializer hands it to the normalizers after it.
+     */
     final readonly class NoProperties
+    {
+        public function __construct()
+        {
+        }
+    }
+
+    final class OnlyStaticProperty
+    {
+        private static int $counter = 0;
+
+        public function __construct()
+        {
+            ++self::$counter;
+        }
+    }
+
+    /**
+     * Only the private property of the parent class, which the PropertyNormalizer supports the class for.
+     */
+    final class OnlySecret extends SecretHolder
     {
         public function __construct()
         {

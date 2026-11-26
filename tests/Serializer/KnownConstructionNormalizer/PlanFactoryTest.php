@@ -12,6 +12,7 @@ use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Diagnosis\VariadicParameter;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Equivalence\ThrowingPropertyTypeExtractor;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\FixedPropertyTypeExtractor;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Other\Settings;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\AdditionalParameter;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Base;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Boxed;
@@ -23,7 +24,11 @@ use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\R
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Kind;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Leaf;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Mutable;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\NoConstructor;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\NonPublicProperty;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\NoProperties;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\OnlySecret;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\OnlyStaticProperty;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ParameterWithoutProperty;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\PrivateConstructor;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ReadModelFailed;
@@ -132,6 +137,11 @@ final class PlanFactoryTest extends TestCase
         foreach ([
             Kind::class,
             Base::class,
+            NoProperties::class,
+            NoConstructor::class,
+            OnlyStaticProperty::class,
+            OnlySecret::class,
+            Settings::class,
             PrivateConstructor::class,
             NonPublicProperty::class,
             ParameterWithoutProperty::class,
@@ -152,6 +162,13 @@ final class PlanFactoryTest extends TestCase
             [
                 Kind::class => 'enum',
                 Base::class => 'abstract class',
+                NoProperties::class => 'no properties (not supported by the PropertyNormalizer)',
+                NoConstructor::class => 'no properties (not supported by the PropertyNormalizer)',
+                OnlyStaticProperty::class => 'no properties (not supported by the PropertyNormalizer)',
+                // The PropertyNormalizer supports it for the private property of the parent class
+                OnlySecret::class => sprintf('property is inherited: $secret (declared in %s)', SecretHolder::class),
+                // Reported before its property that isn't promoted
+                Settings::class => 'no constructor',
                 PrivateConstructor::class => 'constructor is not public',
                 NonPublicProperty::class => 'property is not public: $secret',
                 ParameterWithoutProperty::class => 'property is not promoted: $upperCaseName',

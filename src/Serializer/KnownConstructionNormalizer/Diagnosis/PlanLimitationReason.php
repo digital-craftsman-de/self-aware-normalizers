@@ -27,6 +27,11 @@ enum PlanLimitationReason: string
      * A type that isn't an existing class, enum or interface (e.g. "int" or "X[]").
      */
     case NOT_A_CLASS = 'NOT_A_CLASS';
+    /**
+     * No non-static property, also not in a parent class (e.g. an event without payload): the PropertyNormalizer doesn't support such a
+     * class (PropertyNormalizer::supports()), so the serializer hands it to the normalizers after it, whose result the plan can't know.
+     */
+    case NO_PROPERTIES = 'NO_PROPERTIES';
 
     // -- Shape of the class
     case CONSTRUCTOR_IS_NOT_PUBLIC = 'CONSTRUCTOR_IS_NOT_PUBLIC';
@@ -82,6 +87,7 @@ enum PlanLimitationReason: string
             self::EXCEPTION,
             self::ANONYMOUS_CLASS,
             self::NOT_A_CLASS,
+            self::NO_PROPERTIES,
             self::CLAIMED_BY_OTHER_NORMALIZER,
             self::TRAVERSABLE => true,
             default => false,
@@ -127,6 +133,7 @@ enum PlanLimitationReason: string
             self::EXCEPTION => 'exception',
             self::ANONYMOUS_CLASS => 'anonymous class',
             self::NOT_A_CLASS => 'not a class',
+            self::NO_PROPERTIES => 'no properties (not supported by the PropertyNormalizer)',
             self::CONSTRUCTOR_IS_NOT_PUBLIC => 'constructor is not public',
             self::NO_CONSTRUCTOR => 'no constructor',
             self::PROPERTY_IS_NOT_PUBLIC => 'property is not public',
