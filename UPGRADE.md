@@ -40,10 +40,6 @@ The package moved from `digital-craftsman/self-aware-normalizers` to `buron-digi
 
 The abstract Doctrine types `StringNormalizableType`, `IntNormalizableType`, `FloatNormalizableType`, `BoolNormalizableType` and `ArrayNormalizableType` were deprecated since 1.3.0 and announced to be removed in 2.0.0. They were only removed with 2.0.1, as their removal was forgotten in 2.0.0. If you still extend them, switch to the automatic Doctrine types as described in [From 1.2.* to 1.3.0](#switch-to-automatic-doctrine-types) and remove your own Doctrine types.
 
-## From 1.5.0 to 1.5.1
-
-Nothing to do.
-
 ## From 1.4.* to 1.5.0
 
 Nothing to do. The new `KnownConstructionNormalizer` is disabled by default, see [README - KnownConstructionNormalizer](./README.md#knownconstructionnormalizer) to enable it.
