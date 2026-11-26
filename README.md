@@ -270,7 +270,7 @@ The `KnownConstructionNormalizer` mirrors internals of `symfony/serializer`, `sy
 
 Every class that reaches the `KnownConstructionNormalizer` gets a plan attempt. A class gets a plan when:
 
-- it has a public constructor whose parameters are exactly its non-static properties, all promoted, public and without hooks (not inherited),
+- it has a public constructor whose parameters are exactly its non-static properties, all promoted, public and without hooks (not inherited, and no parent class has private properties),
 - every parameter has a type the plan can express: scalars, `mixed`, arrays and (nested) lists of scalars, self-aware value objects, other classes with a plan and (nested) lists of them, other classes, which are (de)normalized through the serializer, and union types (not intersection types),
 - it doesn't reference itself (directly or through other classes),
 - no normalizer in front of the `KnownConstructionNormalizer` may handle it.

@@ -46,6 +46,7 @@ use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\R
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Tree;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\TypeMismatch;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ValueObjects;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\WithInheritedSecret;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\WithSettings;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\WithStrictName;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ValueObject\Count;
@@ -480,6 +481,7 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
             NonPublicProperty::class,
             Base::class,
             Inherited::class,
+            WithInheritedSecret::class,
             ParameterWithoutProperty::class,
             AdditionalParameter::class,
             IntersectionParameter::class,
@@ -509,6 +511,31 @@ final class KnownConstructionNormalizerTest extends KernelTestCase
         // -- Assert
         self::assertSame([], $supportedClasses);
         self::assertTrue($comparison->knownConstructionNormalizer->supportsDenormalization([], Leaf::class));
+    }
+
+    /**
+     * The PropertyNormalizer normalizes and denormalizes the private properties of the parent classes as well.
+     */
+    #[Test]
+    public function class_with_private_property_of_a_parent_class_is_left_to_the_property_normalizer(): void
+    {
+        // -- Arrange
+        $comparison = $this->comparison();
+        $withInheritedSecret = new WithInheritedSecret('Example');
+
+        // -- Act
+        $isNormalizationSupported = $comparison->knownConstructionNormalizer->supportsNormalization($withInheritedSecret);
+        $isDenormalizationSupported = $comparison->knownConstructionNormalizer->supportsDenormalization(['name' => 'Example'], WithInheritedSecret::class);
+        $differences = [
+            self::differenceOfNormalization($comparison, $withInheritedSecret),
+            self::differenceOfDenormalization($comparison, ['name' => 'Example', 'secret' => 'Other'], WithInheritedSecret::class, null, 'with secret'),
+        ];
+
+        // -- Assert
+        self::assertFalse($isNormalizationSupported);
+        self::assertFalse($isDenormalizationSupported);
+        self::assertSame([], array_values(array_filter($differences)));
+        self::assertSame(['name' => 'Example', 'secret' => 'Secret'], $comparison->plan->normalize($withInheritedSecret));
     }
 
     #[Test]

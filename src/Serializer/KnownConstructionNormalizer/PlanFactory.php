@@ -27,7 +27,7 @@ use Symfony\Component\TypeInfo\TypeResolver\ReflectionTypeResolver;
  * Builds the plan of a class for the KnownConstructionNormalizer: per constructor parameter how its value is denormalized, and the properties that
  * are normalized. Only classes whose shape the plan can express exactly as the PropertyNormalizer (de)normalizes them get a plan:
  * - a public constructor whose parameters are exactly the non-static properties of the class, all promoted, public and without hooks
- *   (no inherited properties, no variadic or by-reference parameters),
+ *   (no inherited properties, also no private ones of a parent class, no variadic or by-reference parameters),
  * - each parameter has a type the plan can handle (see classifyType()); the type is resolved exactly like
  *   AbstractObjectNormalizer::denormalizeParameter() does it (type extractor of the PropertyNormalizer, overruled by the native
  *   parameter type when they disagree),
@@ -246,6 +246,13 @@ final readonly class PlanFactory
             $properties[] = $property->name;
         }
 
+        // The private properties of the parent classes aren't part of getProperties(), but the PropertyNormalizer reads and writes them as
+        // well (PropertyNormalizer::extractAttributes() walks the parent classes)
+        $limitationOfParentProperty = self::limitationOfPrivatePropertyOfParentClass($reflectionClass);
+        if ($limitationOfParentProperty !== null) {
+            return Diagnosis\PlanDiagnosis::notPlanned($limitationOfParentProperty);
+        }
+
         $parameters = [];
         foreach ($constructor->getParameters() as $parameter) {
             $parameterPlan = $this->createParameterPlan($reflectionClass, $parameter, $hasPlan);
@@ -284,6 +291,28 @@ final readonly class PlanFactory
             ],
             $normalizationLimitation,
         );
+    }
+
+    /**
+     * PROPERTY_IS_INHERITED for the first non-static private property of a parent class, null when there is none.
+     *
+     * @param \ReflectionClass<object> $reflectionClass
+     */
+    private static function limitationOfPrivatePropertyOfParentClass(\ReflectionClass $reflectionClass): ?Diagnosis\PlanLimitation
+    {
+        for ($parentClass = $reflectionClass->getParentClass(); $parentClass !== false; $parentClass = $parentClass->getParentClass()) {
+            foreach ($parentClass->getProperties(\ReflectionProperty::IS_PRIVATE) as $property) {
+                if (!$property->isStatic()) {
+                    return new Diagnosis\PlanLimitation(
+                        Diagnosis\PlanLimitationReason::PROPERTY_IS_INHERITED,
+                        $property->name,
+                        sprintf('declared in %s', $parentClass->name),
+                    );
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

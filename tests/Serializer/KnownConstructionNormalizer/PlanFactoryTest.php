@@ -27,8 +27,10 @@ use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\R
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ParameterWithoutProperty;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\PrivateConstructor;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ReadModelFailed;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\SecretHolder;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\Signatories;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\ValueObjects;
+use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\ReadModel\WithInheritedSecret;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Sample\ArrayWithCollectionClassDoc;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Sample\ArrayWithIntOrIterableDoc;
 use BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fixture\Sample\ArrayWithIterableDoc;
@@ -135,6 +137,7 @@ final class PlanFactoryTest extends TestCase
             ParameterWithoutProperty::class,
             Hooked::class,
             Inherited::class,
+            WithInheritedSecret::class,
             VariadicParameter::class,
             ParameterPassedByReference::class,
             AdditionalParameter::class,
@@ -154,6 +157,8 @@ final class PlanFactoryTest extends TestCase
                 ParameterWithoutProperty::class => 'property is not promoted: $upperCaseName',
                 Hooked::class => 'property has hooks: $name',
                 Inherited::class => sprintf('property is inherited: $name (declared in %s)', Base::class),
+                // A private property of a parent class (not of the parent class in between, whose private property is static)
+                WithInheritedSecret::class => sprintf('property is inherited: $secret (declared in %s)', SecretHolder::class),
                 VariadicParameter::class => 'parameter is variadic: $names',
                 ParameterPassedByReference::class => 'parameter is passed by reference: $reference',
                 AdditionalParameter::class => 'parameter is not promoted: $unused',

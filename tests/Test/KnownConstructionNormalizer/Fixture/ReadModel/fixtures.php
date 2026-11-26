@@ -681,6 +681,38 @@ namespace BuronDigital\SelfAwareNormalizers\Test\KnownConstructionNormalizer\Fix
     {
     }
 
+    abstract class SecretHolder
+    {
+        private string $secret = 'Secret';
+
+        public function secret(): string
+        {
+            return $this->secret;
+        }
+    }
+
+    abstract class SecretHolderWithCounter extends SecretHolder
+    {
+        private static int $counter = 0;
+
+        public static function counter(): int
+        {
+            return self::$counter;
+        }
+    }
+
+    /**
+     * The PropertyNormalizer reads and writes the private property of the parent of the parent class as well, which isn't part of the
+     * properties of the class itself.
+     */
+    final class WithInheritedSecret extends SecretHolderWithCounter
+    {
+        public function __construct(
+            public string $name,
+        ) {
+        }
+    }
+
     final readonly class ParameterWithoutProperty
     {
         public string $upperCaseName;
